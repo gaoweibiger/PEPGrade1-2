@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信兼容性检测</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 22px;
+            color: #ffeb3b;
+        }
+        .check-item {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #ccc;
+        }
+        .check-item.pass {
+            border-left-color: #4caf50;
+            background: rgba(76, 175, 80, 0.2);
+        }
+        .check-item.fail {
+            border-left-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+        .check-item.warning {
+            border-left-color: #ff9800;
+            background: rgba(255, 152, 0, 0.2);
+        }
+        .check-label {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .check-result {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .info-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .solution {
+            background: rgba(255, 193, 7, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .solution h3 {
+            margin-top: 0;
+            color: #ffc107;
+        }
+        .solution ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .solution li {
+            margin: 8px 0;
+        }
+        button {
+            background: linear-gradient(45deg, #4caf50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: bold;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .status.compatible {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+        }
+        .status.incompatible {
+            background: rgba(244, 67, 54, 0.3);
+            color: #f44336;
+        }
+        .status.partial {
+            background: rgba(255, 152, 0, 0.3);
+            color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 微信语音兼容性检测</h1>
+        
+        <div id="overallStatus" class="status">
+            正在检测...
+        </div>
+
+        <div class="info-section">
+            <h3>📱 环境信息</h3>
+            <div id="environmentInfo"></div>
+        </div>
+
+        <div class="info-section">
+            <h3>🔧 API支持检测</h3>
+            <div id="apiChecks"></div>
+        </div>
+
+        <div id="solutionSection" style="display: none;">
+            <div class="solution">
+                <h3>💡 解决方案</h3>
+                <div id="solutionContent"></div>
+            </div>
+        </div>
+
+        <button onclick="runCompatibilityCheck()" id="checkBtn">
+            🔍 开始兼容性检测
+        </button>
+
+        <button onclick="copyToClipboard()" id="copyBtn" style="display: none; background: linear-gradient(45deg, #2196f3, #1976d2);">
+            📋 复制链接到其他浏览器
+        </button>
+    </div>
+
+    <script>
+        let checkResults = {};
+
+        function addCheckItem(label, result, details, type = 'info') {
+            const container = document.getElementById('apiChecks');
+            const item = document.createElement('div');
+            item.className = `check-item ${type}`;
+            
+            const icon = type === 'pass' ? '✅' : type === 'fail' ? '❌' : '⚠️';
+            
+            item.innerHTML = `
+                <div class="check-label">${icon} ${label}</div>
+                <div class="check-result">${details}</div>
+            `;
+            
+            container.appendChild(item);
+            checkResults[label] = { result, details, type };
+        }
+
+        function updateEnvironmentInfo() {
+            const userAgent = navigator.userAgent;
+            const isWeChat = /MicroMessenger/i.test(userAgent);
+            const wechatVersionMatch = userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+            const isMiniProgram = window.__wxjs_environment === 'miniprogram';
+
+            let wechatVersion = '未检测到';
+            if (wechatVersionMatch) {
+                wechatVersion = `${wechatVersionMatch[1]}.${wechatVersionMatch[2]}.${wechatVersionMatch[3]}`;
+            }
+
+            const envInfo = document.getElementById('environmentInfo');
+            envInfo.innerHTML = `
+                <div><strong>微信环境:</strong> ${isWeChat ? '是' : '否'}</div>
+                <div><strong>微信版本:</strong> ${wechatVersion}</div>
+                <div><strong>小程序环境:</strong> ${isMiniProgram ? '是' : '否'}</div>
+                <div><strong>用户代理:</strong> <small>${userAgent}</small></div>
+            `;
+
+            return { isWeChat, wechatVersion, isMiniProgram, userAgent };
+        }
+
+        function runCompatibilityCheck() {
+            document.getElementById('apiChecks').innerHTML = '';
+            document.getElementById('checkBtn').textContent = '🔄 检测中...';
+            document.getElementById('checkBtn').disabled = true;
+
+            const envInfo = updateEnvironmentInfo();
+
+            // 检查1: 微信环境
+            if (envInfo.isWeChat) {
+                addCheckItem('微信环境检测', true, '当前在微信浏览器中', 'pass');
+            } else {
+                addCheckItem('微信环境检测', false, '当前不在微信环境中', 'warning');
+            }
+
+            // 检查2: 小程序环境
+            if (envInfo.isMiniProgram) {
+                addCheckItem('小程序环境检测', false, '微信小程序不支持Web Speech API', 'fail');
+            } else {
+                addCheckItem('小程序环境检测', true, '不在小程序环境中', 'pass');
+            }
+
+            // 检查3: speechSynthesis API
+            const hasSpeechSynthesis = 'speechSynthesis' in window;
+            if (hasSpeechSynthesis) {
+                addCheckItem('speechSynthesis API', true, 'speechSynthesis API 可用', 'pass');
+            } else {
+                addCheckItem('speechSynthesis API', false, 'speechSynthesis API 不可用', 'fail');
+            }
+
+            // 检查4: SpeechSynthesisUtterance API
+            const hasSpeechSynthesisUtterance = 'SpeechSynthesisUtterance' in window;
+            if (hasSpeechSynthesisUtterance) {
+                addCheckItem('SpeechSynthesisUtterance API', true, 'SpeechSynthesisUtterance API 可用', 'pass');
+            } else {
+                addCheckItem('SpeechSynthesisUtterance API', false, 'SpeechSynthesisUtterance API 不可用', 'fail');
+            }
+
+            // 检查5: 语音列表
+            if (hasSpeechSynthesis) {
+                const voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    addCheckItem('语音列表', true, `找到 ${voices.length} 个可用语音`, 'pass');
+                } else {
+                    addCheckItem('语音列表', false, '语音列表为空，可能需要时间加载', 'warning');
+                }
+            }
+
+            // 检查6: 创建语音实例测试
+            if (hasSpeechSynthesis && hasSpeechSynthesisUtterance) {
+                try {
+                    const testUtterance = new SpeechSynthesisUtterance('test');
+                    addCheckItem('语音实例创建', true, '可以成功创建语音实例', 'pass');
+                } catch (error) {
+                    addCheckItem('语音实例创建', false, `创建语音实例失败: ${error.message}`, 'fail');
+                }
+            }
+
+            // 综合评估
+            setTimeout(() => {
+                evaluateCompatibility();
+                document.getElementById('checkBtn').textContent = '🔍 重新检测';
+                document.getElementById('checkBtn').disabled = false;
+            }, 1000);
+        }
+
+        function evaluateCompatibility() {
+            const failCount = Object.values(checkResults).filter(r => r.type === 'fail').length;
+            const passCount = Object.values(checkResults).filter(r => r.type === 'pass').length;
+            const warningCount = Object.values(checkResults).filter(r => r.type === 'warning').length;
+
+            const statusEl = document.getElementById('overallStatus');
+            const solutionEl = document.getElementById('solutionSection');
+            const copyBtn = document.getElementById('copyBtn');
+
+            if (failCount === 0 && warningCount <= 1) {
+                statusEl.className = 'status compatible';
+                statusEl.textContent = '✅ 兼容性良好 - 语音功能应该可以正常使用';
+                solutionEl.style.display = 'none';
+                copyBtn.style.display = 'none';
+            } else if (failCount > 0) {
+                statusEl.className = 'status incompatible';
+                statusEl.textContent = '❌ 兼容性问题 - 语音功能无法使用';
+                showSolution();
+                copyBtn.style.display = 'block';
+            } else {
+                statusEl.className = 'status partial';
+                statusEl.textContent = '⚠️ 部分兼容 - 语音功能可能不稳定';
+                showSolution();
+                copyBtn.style.display = 'block';
+            }
+        }
+
+        function showSolution() {
+            const solutionEl = document.getElementById('solutionSection');
+            const contentEl = document.getElementById('solutionContent');
+            
+            const envInfo = updateEnvironmentInfo();
+            let solutions = [];
+
+            if (checkResults['SpeechSynthesisUtterance API']?.type === 'fail') {
+                solutions.push('当前微信版本不支持语音合成API');
+                solutions.push('更新微信到最新版本');
+                solutions.push('复制链接到Safari浏览器打开');
+                solutions.push('复制链接到Chrome浏览器打开');
+            } else if (checkResults['speechSynthesis API']?.type === 'fail') {
+                solutions.push('浏览器不支持语音合成功能');
+                solutions.push('使用支持Web Speech API的现代浏览器');
+            } else {
+                solutions.push('点击页面任意位置激活音频功能');
+                solutions.push('确保设备音量已开启');
+                solutions.push('检查网络连接状态');
+                solutions.push('尝试刷新页面重新加载');
+            }
+
+            const solutionHtml = `
+                <ol>
+                    ${solutions.map(solution => `<li>${solution}</li>`).join('')}
+                </ol>
+                <p><strong>推荐浏览器：</strong></p>
+                <ul>
+                    <li>Safari (iOS推荐)</li>
+                    <li>Chrome (Android推荐)</li>
+                    <li>Edge (Windows推荐)</li>
+                </ul>
+            `;
+
+            contentEl.innerHTML = solutionHtml;
+            solutionEl.style.display = 'block';
+        }
+
+        function copyToClipboard() {
+            const url = window.location.href.replace('wechat-compatibility-check.html', '');
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('链接已复制到剪贴板！\n请在Safari或Chrome浏览器中粘贴打开。');
+                }).catch(() => {
+                    fallbackCopyToClipboard(url);
+                });
+            } else {
+                fallbackCopyToClipboard(url);
+            }
+        }
+
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                alert('链接已复制到剪贴板！\n请在Safari或Chrome浏览器中粘贴打开。');
+            } catch (err) {
+                alert(`请手动复制以下链接：\n${text}`);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // 页面加载完成后自动检测
+        document.addEventListener('DOMContentLoaded', () => {
+            runCompatibilityCheck();
+        });
+    </script>
+</body>
+</html>

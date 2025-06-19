@@ -258,7 +258,7 @@
             document.getElementById('logContainer').innerHTML = '<div>日志已清除...</div>';
         }
 
-        // 检测微信环境
+        // 检测微信环境和语音支持
         function detectWeChatInfo() {
             const userAgent = navigator.userAgent;
             const isWeChat = /MicroMessenger/i.test(userAgent);
@@ -286,6 +286,26 @@
                 return false;
             }
 
+            // 检查语音API支持
+            const speechSynthesisSupported = 'speechSynthesis' in window;
+            const speechSynthesisUtteranceSupported = 'SpeechSynthesisUtterance' in window;
+
+            log(`语音API检测 - speechSynthesis: ${speechSynthesisSupported}, SpeechSynthesisUtterance: ${speechSynthesisUtteranceSupported}`);
+
+            if (!speechSynthesisSupported) {
+                updateStatus('❌ 微信浏览器不支持speechSynthesis API', 'error');
+                return false;
+            }
+
+            if (!speechSynthesisUtteranceSupported) {
+                updateStatus('❌ 微信浏览器不支持SpeechSynthesisUtterance API', 'error');
+                log('这个微信版本可能不支持Web Speech API，建议：', 'error');
+                log('1. 更新微信到最新版本', 'warning');
+                log('2. 复制链接到Safari或Chrome浏览器打开', 'warning');
+                log('3. 检查是否在微信小程序webview中', 'warning');
+                return false;
+            }
+
             return true;
         }
 
@@ -295,9 +315,19 @@
             updateStatus('正在激活音频功能...', 'warning');
 
             try {
+                // 检查API支持
+                if (!('speechSynthesis' in window)) {
+                    throw new Error('speechSynthesis API 不支持');
+                }
+
+                if (!('SpeechSynthesisUtterance' in window)) {
+                    throw new Error('SpeechSynthesisUtterance API 不支持');
+                }
+
                 // 标记用户已交互
                 userInteracted = true;
                 log('✅ 用户交互已标记');
+                log('✅ 语音API检查通过');
 
                 // 播放静音测试
                 const utterance = new SpeechSynthesisUtterance(' ');
@@ -311,7 +341,7 @@
                 utterance.onend = () => {
                     log('✅ 步骤1完成 - 音频功能已激活', 'success');
                     updateStatus('✅ 步骤1完成 - 音频功能已激活', 'success');
-                    
+
                     currentStep = 1;
                     document.getElementById('step1Btn').disabled = true;
                     document.getElementById('step1Btn').textContent = '✅ 步骤1: 已完成';
@@ -321,7 +351,7 @@
                 utterance.onerror = (event) => {
                     log(`静音测试失败: ${event.error}`, 'error');
                     updateStatus('⚠️ 步骤1可能失败，但继续下一步', 'warning');
-                    
+
                     currentStep = 1;
                     document.getElementById('step2Btn').disabled = false;
                 };
@@ -330,7 +360,16 @@
 
             } catch (error) {
                 log(`步骤1失败: ${error.message}`, 'error');
-                updateStatus('❌ 步骤1失败', 'error');
+
+                if (error.message.includes('SpeechSynthesisUtterance')) {
+                    updateStatus('❌ 微信浏览器不支持语音合成API', 'error');
+                    log('解决方案：', 'warning');
+                    log('1. 更新微信到最新版本', 'warning');
+                    log('2. 复制链接到Safari浏览器打开', 'warning');
+                    log('3. 复制链接到Chrome浏览器打开', 'warning');
+                } else {
+                    updateStatus('❌ 步骤1失败', 'error');
+                }
             }
         }
 

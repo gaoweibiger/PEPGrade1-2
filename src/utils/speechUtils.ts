@@ -262,7 +262,7 @@ export class SpeechUtils {
     }
   }
 
-  // 检查语音支持 - 移动端优化版本
+  // 检查语音支持 - 微信环境增强检测
   static isSpeechSupported(): boolean {
     // 基础检查
     if (!('speechSynthesis' in window)) {
@@ -276,6 +276,19 @@ export class SpeechUtils {
       return false;
     }
 
+    // 检查 SpeechSynthesisUtterance 是否可用
+    if (!('SpeechSynthesisUtterance' in window)) {
+      console.warn('浏览器不支持 SpeechSynthesisUtterance API');
+
+      // 如果是微信环境，给出特殊提示
+      if (this.isWeChat) {
+        console.warn('微信浏览器版本可能过低，不支持语音合成功能');
+        console.warn('建议：1. 更新微信到最新版本 2. 复制链接到其他浏览器打开');
+      }
+
+      return false;
+    }
+
     // 尝试创建 SpeechSynthesisUtterance 实例来验证
     try {
       const testUtterance = new SpeechSynthesisUtterance('test');
@@ -283,13 +296,19 @@ export class SpeechUtils {
       // 移动端额外检查：尝试获取语音列表
       if (this.isMobileDevice()) {
         // 移动端可能需要时间加载语音列表，所以我们更宽松
-        console.log('移动端设备检测到，使用宽松的语音支持检测');
-        return true; // 移动端只要有基础API就认为支持
+        console.log('移动端设备检测到，语音API检查通过');
+        return true;
       }
 
       return true;
     } catch (error) {
       console.warn('语音合成 API 不可用:', error);
+
+      // 如果是微信环境，给出特殊提示
+      if (this.isWeChat) {
+        console.warn('微信浏览器语音功能异常，建议复制链接到其他浏览器打开');
+      }
+
       return false;
     }
   }
@@ -592,7 +611,7 @@ export class SpeechUtils {
     });
   }
 
-  // 显示不支持的消息 - 移动端优化
+  // 显示不支持的消息 - 微信环境增强
   static showUnsupportedMessage() {
     const envInfo = this.getEnvironmentInfo();
     let message = '抱歉，您的设备不支持语音合成功能。\n\n';
@@ -601,7 +620,15 @@ export class SpeechUtils {
       message += '检测到您在微信小程序中访问，小程序环境不支持网页语音功能。\n\n建议：\n• 在微信中直接打开链接\n• 或复制链接到其他浏览器打开';
     } else if (envInfo.isMobile) {
       if (envInfo.isWeChat) {
-        message += '微信浏览器语音功能检测。\n\n请尝试：\n• 点击页面任意位置激活音频\n• 确保设备音量已开启\n• 检查网络连接\n• 或复制链接到 Safari/Chrome 打开';
+        // 检查是否是API不支持的问题
+        const hasSpeechSynthesis = 'speechSynthesis' in window;
+        const hasSpeechSynthesisUtterance = 'SpeechSynthesisUtterance' in window;
+
+        if (!hasSpeechSynthesis || !hasSpeechSynthesisUtterance) {
+          message += `微信浏览器版本不支持语音合成API。\n\n当前微信版本：${envInfo.wechatVersion || '未知'}\n\n解决方案：\n• 更新微信到最新版本\n• 复制链接到 Safari 浏览器打开\n• 复制链接到 Chrome 浏览器打开\n• 在手机设置中检查微信权限`;
+        } else {
+          message += '微信浏览器语音功能检测。\n\n请尝试：\n• 点击页面任意位置激活音频\n• 确保设备音量已开启\n• 检查网络连接\n• 或复制链接到 Safari/Chrome 打开';
+        }
       } else {
         message += '移动端浏览器语音功能检测。\n\n请尝试：\n• 点击页面任意位置激活音频\n• 确保设备音量已开启\n• 使用 Safari (iOS) 或 Chrome (Android)\n• 检查浏览器权限设置';
       }
@@ -611,6 +638,8 @@ export class SpeechUtils {
 
     // 在控制台输出详细信息
     console.warn('语音功能不支持详情:', envInfo);
+    console.warn('speechSynthesis支持:', 'speechSynthesis' in window);
+    console.warn('SpeechSynthesisUtterance支持:', 'SpeechSynthesisUtterance' in window);
 
     // 可以通过自定义事件通知UI组件
     window.dispatchEvent(new CustomEvent('speechUnsupported', {
