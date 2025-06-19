@@ -35,10 +35,18 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
   const [showTroubleshooter, setShowTroubleshooter] = useState(false);
   const { speak, isSupported, getEnvironmentInfo } = useSpeech();
   const [environmentInfo, setEnvironmentInfo] = useState(getEnvironmentInfo());
+  const [isMounted, setIsMounted] = useState(true);
 
   useEffect(() => {
     setEnvironmentInfo(getEnvironmentInfo());
   }, [getEnvironmentInfo]);
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      setIsMounted(false);
+    };
+  }, []);
 
   const getSizeClasses = () => {
     switch (size) {
@@ -85,6 +93,12 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
   };
 
   const handleSpeak = async () => {
+    // 防止重复点击和死循环
+    if (isPlaying) {
+      console.log('语音正在播放中，忽略重复点击');
+      return;
+    }
+
     if (!isSupported()) {
       setPlayStatus('error');
       onSpeechError?.('语音功能不支持');
@@ -97,6 +111,7 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
 
     setIsPlaying(true);
     setPlayStatus('loading');
+    setLastError(''); // 清除之前的错误
     onSpeechStart?.();
     
     try {
@@ -134,19 +149,29 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
 
         setLastError(failureReason);
 
-        // 自动重试逻辑 - 减少重试次数避免死循环
-        if (autoRetry && retryCount < 1) { // 只重试1次
-          console.log(`准备重试播放 (${retryCount + 1}/1): ${text}`);
+        // 自动重试逻辑 - 最多重试2次，避免死循环
+        if (autoRetry && retryCount < 2) {
+          const nextRetryCount = retryCount + 1;
+          console.log(`准备重试播放 (${nextRetryCount}/2): ${text}`);
+          setRetryCount(nextRetryCount);
+
+          // 递增延迟：第1次重试1.5秒，第2次重试3秒
+          const retryDelay = nextRetryCount * 1500;
           setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            handleSpeak();
-          }, 1500); // 增加重试间隔
+            // 检查组件是否仍然挂载
+            if (isMounted) {
+              handleSpeak();
+            } else {
+              console.log('组件已卸载，取消重试');
+            }
+          }, retryDelay);
         } else {
-          if (retryCount >= 1) {
-            console.warn(`已达到最大重试次数，停止重试: ${text}`);
+          // 达到最大重试次数或不自动重试
+          if (retryCount >= 2) {
+            console.warn(`已达到最大重试次数(2次)，停止重试: ${text}`);
           }
           onSpeechError?.(failureReason);
-          setRetryCount(0);
+          setRetryCount(0); // 重置重试计数
 
           // 3秒后重置状态
           setTimeout(() => {
@@ -160,21 +185,41 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
       setPlayStatus('error');
       setLastError(errorMessage);
 
-      // 检查是否是 synthesis-failed 错误
-      const isSynthesisFailed = errorMessage.includes('synthesis-failed');
+      // 检查是否是致命错误（不应重试）
+      const isFatalError = errorMessage.includes('synthesis-failed') ||
+                          errorMessage.includes('not supported') ||
+                          errorMessage.includes('permission denied') ||
+                          errorMessage.includes('network error');
 
-      // 自动重试逻辑（仅对真正的异常进行重试）
-      if (autoRetry && retryCount < 2 && !isSynthesisFailed) {
+      // 自动重试逻辑（仅对非致命错误进行重试）
+      if (autoRetry && retryCount < 2 && !isFatalError) {
+        const nextRetryCount = retryCount + 1;
+        console.log(`异常重试 (${nextRetryCount}/2): ${errorMessage}`);
+        setRetryCount(nextRetryCount);
+
+        // 递增延迟：第1次重试1秒，第2次重试2秒
+        const retryDelay = nextRetryCount * 1000;
         setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          handleSpeak();
-        }, 1000);
+          // 检查组件是否仍然挂载
+          if (isMounted) {
+            handleSpeak();
+          } else {
+            console.log('组件已卸载，取消异常重试');
+          }
+        }, retryDelay);
       } else {
-        onSpeechError?.(errorMessage);
-        setRetryCount(0);
+        // 不重试的情况
+        if (isFatalError) {
+          console.warn(`致命错误，不重试: ${errorMessage}`);
+        } else if (retryCount >= 2) {
+          console.warn(`异常重试次数已达上限，停止重试: ${errorMessage}`);
+        }
 
-        // 对于 synthesis-failed 错误，显示故障排除器
-        if (isSynthesisFailed) {
+        onSpeechError?.(errorMessage);
+        setRetryCount(0); // 重置重试计数
+
+        // 对于致命错误，显示故障排除器
+        if (isFatalError) {
           setTimeout(() => {
             setShowTroubleshooter(true);
           }, 1000);

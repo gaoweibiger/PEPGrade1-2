@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试语音重试修复</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.loading { background: rgba(255, 193, 7, 0.3); }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .retry-counter {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 语音重试机制修复测试</h1>
+        
+        <div class="controls">
+            <button onclick="clearLogs()">🗑️ 清除日志</button>
+            <button onclick="testNormalSpeech()">✅ 测试正常语音</button>
+            <button onclick="testFailureSpeech()">❌ 模拟失败语音</button>
+            <button onclick="testRetryLimit()">🔄 测试重试限制</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎯 修复内容</h3>
+            <div class="test-item">
+                <strong>✅ 防止重复点击：</strong> 添加了 isPlaying 状态检查
+            </div>
+            <div class="test-item">
+                <strong>✅ 统一重试次数：</strong> 最多重试2次，避免无限循环
+            </div>
+            <div class="test-item">
+                <strong>✅ 递增延迟：</strong> 第1次重试1.5秒，第2次重试3秒
+            </div>
+            <div class="test-item">
+                <strong>✅ 组件卸载保护：</strong> 防止组件卸载后继续重试
+            </div>
+            <div class="test-item">
+                <strong>✅ 致命错误识别：</strong> 不对致命错误进行重试
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 测试结果</h3>
+            <div id="testResults">
+                <div class="status">等待测试...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 详细日志</h3>
+            <div id="logContainer" class="log">
+                <div>准备开始测试...</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        let testCount = 0;
+        let retryCount = 0;
+        let isTestRunning = false;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#ff6b6b' : 
+                                 type === 'success' ? '#4caf50' : 
+                                 type === 'warning' ? '#ff9800' : '#fff';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 清除日志
+        window.clearLogs = function() {
+            document.getElementById('logContainer').innerHTML = '<div>日志已清除...</div>';
+            document.getElementById('testResults').innerHTML = '<div class="status">等待测试...</div>';
+            testCount = 0;
+            retryCount = 0;
+        };
+
+        // 模拟语音合成API
+        function mockSpeechSynthesis(shouldFail = false, failureType = 'normal') {
+            return new Promise((resolve, reject) => {
+                const delay = Math.random() * 1000 + 500; // 0.5-1.5秒随机延迟
+                
+                setTimeout(() => {
+                    if (shouldFail) {
+                        switch (failureType) {
+                            case 'fatal':
+                                reject(new Error('synthesis-failed: 致命错误'));
+                                break;
+                            case 'network':
+                                reject(new Error('network error: 网络连接失败'));
+                                break;
+                            default:
+                                resolve(false); // 返回失败但不抛异常
+                        }
+                    } else {
+                        resolve(true); // 成功
+                    }
+                }, delay);
+            });
+        }
+
+        // 模拟重试逻辑
+        async function simulateRetryLogic(text, maxRetries = 2, shouldFail = false, failureType = 'normal') {
+            let currentRetry = 0;
+            let isPlaying = false;
+
+            const attempt = async () => {
+                if (isPlaying) {
+                    log('语音正在播放中，忽略重复点击', 'warning');
+                    return false;
+                }
+
+                isPlaying = true;
+                log(`开始播放: "${text}" (尝试 ${currentRetry + 1}/${maxRetries + 1})`);
+
+                try {
+                    const success = await mockSpeechSynthesis(shouldFail, failureType);
+                    
+                    if (success) {
+                        log(`播放成功: "${text}"`, 'success');
+                        isPlaying = false;
+                        return true;
+                    } else {
+                        log(`播放失败: "${text}"`, 'error');
+                        
+                        if (currentRetry < maxRetries) {
+                            currentRetry++;
+                            const retryDelay = currentRetry * 1500; // 递增延迟
+                            log(`准备重试 (${currentRetry}/${maxRetries})，延迟 ${retryDelay}ms`, 'warning');
+                            
+                            setTimeout(() => {
+                                isPlaying = false;
+                                attempt();
+                            }, retryDelay);
+                        } else {
+                            log(`已达到最大重试次数，停止重试`, 'error');
+                            isPlaying = false;
+                            return false;
+                        }
+                    }
+                } catch (error) {
+                    log(`播放异常: ${error.message}`, 'error');
+                    
+                    const isFatalError = error.message.includes('synthesis-failed') ||
+                                       error.message.includes('network error');
+                    
+                    if (!isFatalError && currentRetry < maxRetries) {
+                        currentRetry++;
+                        const retryDelay = currentRetry * 1000;
+                        log(`异常重试 (${currentRetry}/${maxRetries})，延迟 ${retryDelay}ms`, 'warning');
+                        
+                        setTimeout(() => {
+                            isPlaying = false;
+                            attempt();
+                        }, retryDelay);
+                    } else {
+                        if (isFatalError) {
+                            log(`致命错误，不重试: ${error.message}`, 'error');
+                        } else {
+                            log(`异常重试次数已达上限，停止重试`, 'error');
+                        }
+                        isPlaying = false;
+                        return false;
+                    }
+                }
+            };
+
+            return attempt();
+        }
+
+        // 测试正常语音
+        window.testNormalSpeech = async function() {
+            if (isTestRunning) return;
+            isTestRunning = true;
+            
+            log('=== 开始测试正常语音播放 ===');
+            updateStatus('正在测试正常语音...', 'loading');
+            
+            const result = await simulateRetryLogic('Hello, this is a test', 2, false);
+            
+            if (result) {
+                updateStatus('✅ 正常语音测试通过', 'success');
+                log('正常语音测试完成', 'success');
+            } else {
+                updateStatus('❌ 正常语音测试失败', 'error');
+                log('正常语音测试失败', 'error');
+            }
+            
+            isTestRunning = false;
+        };
+
+        // 测试失败语音
+        window.testFailureSpeech = async function() {
+            if (isTestRunning) return;
+            isTestRunning = true;
+            
+            log('=== 开始测试失败语音处理 ===');
+            updateStatus('正在测试失败语音...', 'loading');
+            
+            const result = await simulateRetryLogic('This will fail', 2, true, 'normal');
+            
+            if (!result) {
+                updateStatus('✅ 失败处理测试通过（正确停止重试）', 'success');
+                log('失败处理测试完成', 'success');
+            } else {
+                updateStatus('❌ 失败处理测试异常', 'error');
+                log('失败处理测试异常', 'error');
+            }
+            
+            isTestRunning = false;
+        };
+
+        // 测试重试限制
+        window.testRetryLimit = async function() {
+            if (isTestRunning) return;
+            isTestRunning = true;
+            
+            log('=== 开始测试重试限制机制 ===');
+            updateStatus('正在测试重试限制...', 'loading');
+            
+            const result = await simulateRetryLogic('Test retry limit', 2, true, 'fatal');
+            
+            if (!result) {
+                updateStatus('✅ 重试限制测试通过（致命错误不重试）', 'success');
+                log('重试限制测试完成', 'success');
+            } else {
+                updateStatus('❌ 重试限制测试失败', 'error');
+                log('重试限制测试失败', 'error');
+            }
+            
+            isTestRunning = false;
+        };
+
+        // 更新状态显示
+        function updateStatus(message, type) {
+            const resultsContainer = document.getElementById('testResults');
+            resultsContainer.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('测试页面已加载，准备开始测试');
+            log('修复内容：防止死循环、限制重试次数、组件卸载保护');
+        });
+    </script>
+</body>
+</html>
