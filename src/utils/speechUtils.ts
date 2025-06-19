@@ -238,40 +238,31 @@ export class SpeechUtils {
     }
   }
 
-  // 检查语音支持 - 增强版本
+  // 检查语音支持 - 移动端优化版本
   static isSpeechSupported(): boolean {
     // 基础检查
     if (!('speechSynthesis' in window)) {
+      console.warn('浏览器不支持 speechSynthesis API');
       return false;
     }
 
-    // 微信浏览器特殊检查
-    if (this.isWeChat) {
-      // 检查微信版本是否支持语音合成
-      const userAgent = navigator.userAgent;
-      const wechatVersionMatch = userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
-
-      if (wechatVersionMatch) {
-        const majorVersion = parseInt(wechatVersionMatch[1]);
-        const minorVersion = parseInt(wechatVersionMatch[2]);
-
-        // 微信 7.0.0 以上版本才较好支持语音合成
-        if (majorVersion < 7) {
-          console.warn('微信版本过低，语音合成功能可能不稳定');
-          return false;
-        }
-
-        // 检查是否在微信小程序环境中
-        if (window.__wxjs_environment === 'miniprogram') {
-          console.warn('微信小程序环境不支持 Web Speech API');
-          return false;
-        }
-      }
+    // 检查是否在微信小程序环境中（这个确实不支持）
+    if (window.__wxjs_environment === 'miniprogram') {
+      console.warn('微信小程序环境不支持 Web Speech API');
+      return false;
     }
 
     // 尝试创建 SpeechSynthesisUtterance 实例来验证
     try {
       const testUtterance = new SpeechSynthesisUtterance('test');
+
+      // 移动端额外检查：尝试获取语音列表
+      if (this.isMobileDevice()) {
+        // 移动端可能需要时间加载语音列表，所以我们更宽松
+        console.log('移动端设备检测到，使用宽松的语音支持检测');
+        return true; // 移动端只要有基础API就认为支持
+      }
+
       return true;
     } catch (error) {
       console.warn('语音合成 API 不可用:', error);
@@ -309,7 +300,7 @@ export class SpeechUtils {
     };
   }
 
-  // 获取微信相关信息
+  // 获取微信相关信息 - 移动端优化
   static getWeChatInfo() {
     if (!this.isWeChat) {
       return { version: null, supported: false, isMiniProgram: false };
@@ -322,29 +313,39 @@ export class SpeechUtils {
     if (wechatVersionMatch) {
       const version = `${wechatVersionMatch[1]}.${wechatVersionMatch[2]}.${wechatVersionMatch[3]}`;
       const majorVersion = parseInt(wechatVersionMatch[1]);
-      const supported = majorVersion >= 7 && !isMiniProgram;
+
+      // 放宽版本要求：微信6.0+就支持，只要不是小程序
+      const supported = majorVersion >= 6 && !isMiniProgram;
 
       return { version, supported, isMiniProgram };
     }
 
-    return { version: 'unknown', supported: false, isMiniProgram };
+    // 如果无法检测版本，但不是小程序，就假设支持
+    return { version: 'unknown', supported: !isMiniProgram, isMiniProgram };
   }
 
-  // 获取支持级别
+  // 获取支持级别 - 移动端优化
   static getSupportLevel(): 'full' | 'limited' | 'none' {
     if (!this.isSpeechSupported()) {
       return 'none';
     }
 
-    if (this.isWeChat) {
-      const wechatInfo = this.getWeChatInfo();
-      if (!wechatInfo.supported) {
-        return 'none';
+    // 移动端设备通常支持语音合成，但可能有限制
+    if (this.isMobileDevice()) {
+      if (this.isWeChat) {
+        // 微信浏览器：只要不是小程序就支持
+        if (window.__wxjs_environment === 'miniprogram') {
+          return 'none';
+        }
+        return 'limited'; // 微信浏览器支持有限，需要用户交互
       }
-      return 'limited'; // 微信浏览器支持有限
+
+      // 其他移动浏览器：Safari、Chrome Mobile等
+      return 'limited'; // 移动端通常需要用户交互
     }
 
-    return 'full'; // 标准浏览器完全支持
+    // 桌面端浏览器
+    return 'full';
   }
 
   // 高性能语音播放函数 - 零延迟优化 + 读音修正
@@ -410,9 +411,9 @@ export class SpeechUtils {
       return false;
     }
 
-    // 微信浏览器需要用户交互
-    if (this.isWeChat && !this.userInteracted) {
-      console.warn('微信浏览器需要用户先与页面交互才能播放语音');
+    // 移动端和微信浏览器需要用户交互
+    if ((this.isMobileDevice() || this.isWeChat) && !this.userInteracted) {
+      console.warn('移动端/微信浏览器需要用户先与页面交互才能播放语音');
       this.showInteractionRequiredMessage();
       return false;
     }
@@ -535,21 +536,21 @@ export class SpeechUtils {
     });
   }
 
-  // 显示不支持的消息
+  // 显示不支持的消息 - 移动端优化
   static showUnsupportedMessage() {
     const envInfo = this.getEnvironmentInfo();
-    let message = '抱歉，您的浏览器不支持语音合成功能。\n\n';
+    let message = '抱歉，您的设备不支持语音合成功能。\n\n';
 
-    if (envInfo.isWeChat) {
-      if (envInfo.isWechatMiniProgram) {
-        message += '检测到您在微信小程序中访问，小程序环境不支持网页语音功能。\n\n建议：\n• 在微信中直接打开链接\n• 或复制链接到其他浏览器打开';
-      } else if (!envInfo.wechatVersionSupported) {
-        message += `检测到微信版本：${envInfo.wechatVersion || '未知'}\n\n建议：\n• 更新微信到最新版本\n• 或复制链接到其他浏览器打开`;
+    if (envInfo.isWechatMiniProgram) {
+      message += '检测到您在微信小程序中访问，小程序环境不支持网页语音功能。\n\n建议：\n• 在微信中直接打开链接\n• 或复制链接到其他浏览器打开';
+    } else if (envInfo.isMobile) {
+      if (envInfo.isWeChat) {
+        message += '微信浏览器语音功能检测。\n\n请尝试：\n• 点击页面任意位置激活音频\n• 确保设备音量已开启\n• 检查网络连接\n• 或复制链接到 Safari/Chrome 打开';
       } else {
-        message += '微信浏览器的语音功能可能受限。\n\n建议：\n• 确保微信已更新到最新版本\n• 或复制链接到 Safari/Chrome 等浏览器打开';
+        message += '移动端浏览器语音功能检测。\n\n请尝试：\n• 点击页面任意位置激活音频\n• 确保设备音量已开启\n• 使用 Safari (iOS) 或 Chrome (Android)\n• 检查浏览器权限设置';
       }
     } else {
-      message += '建议使用以下浏览器：\n• Chrome (推荐)\n• Safari\n• Edge\n• Firefox';
+      message += '桌面端浏览器不支持。\n\n建议使用：\n• Chrome (推荐)\n• Safari\n• Edge\n• Firefox 最新版本';
     }
 
     // 在控制台输出详细信息
@@ -561,12 +562,21 @@ export class SpeechUtils {
     }));
   }
 
-  // 显示需要交互的消息
+  // 显示需要交互的消息 - 移动端优化
   static showInteractionRequiredMessage() {
-    const message = '请先点击页面任意位置激活语音功能！\n\n这是微信浏览器的安全限制，需要用户交互后才能播放语音。';
+    const envInfo = this.getEnvironmentInfo();
+    let message = '请先点击页面任意位置激活语音功能！\n\n';
+
+    if (envInfo.isWeChat) {
+      message += '这是微信浏览器的安全限制，需要用户交互后才能播放语音。';
+    } else if (envInfo.isMobile) {
+      message += '这是移动端浏览器的安全限制，需要用户交互后才能播放音频。\n\n提示：\n• 确保设备音量已开启\n• 检查浏览器音频权限';
+    } else {
+      message += '浏览器需要用户交互后才能播放音频。';
+    }
 
     window.dispatchEvent(new CustomEvent('speechInteractionRequired', {
-      detail: { message }
+      detail: { message, envInfo }
     }));
   }
 

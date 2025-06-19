@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端语音测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #ffeb3b;
+        }
+        .info-value {
+            margin-left: 10px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 300px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.warning { background: rgba(255, 193, 7, 0.3); }
+        .status.info { background: rgba(33, 150, 243, 0.3); }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .highlight {
+            background: rgba(255, 235, 59, 0.3);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 移动端语音功能测试</h1>
+        
+        <div class="test-section">
+            <h3>🔍 设备信息检测</h3>
+            <div id="deviceInfo">
+                <div class="info-item">
+                    <span class="info-label">用户代理:</span>
+                    <span class="info-value" id="userAgent"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">是否移动设备:</span>
+                    <span class="info-value" id="isMobile"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">是否微信浏览器:</span>
+                    <span class="info-value" id="isWeChat"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">语音API支持:</span>
+                    <span class="info-value" id="speechSupport"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">可用语音数量:</span>
+                    <span class="info-value" id="voiceCount"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 语音测试</h3>
+            <div class="controls">
+                <button onclick="activateAudio()" id="activateBtn">🎵 激活音频功能</button>
+                <button onclick="testBasicSpeech()" id="testBtn" disabled>🔊 测试基础语音</button>
+                <button onclick="testEnglishSpeech()" id="englishBtn" disabled>🇺🇸 测试英语语音</button>
+                <button onclick="loadVoices()" id="voicesBtn">📢 加载语音列表</button>
+            </div>
+            
+            <div id="testStatus" class="status info">
+                请先点击"激活音频功能"按钮
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 测试日志</h3>
+            <button onclick="clearLog()">🗑️ 清除日志</button>
+            <div id="logContainer" class="log">
+                <div>等待开始测试...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>💡 使用说明</h3>
+            <div class="info-item">
+                <strong>1. 激活音频：</strong> 移动端需要用户交互才能播放音频
+            </div>
+            <div class="info-item">
+                <strong>2. 测试语音：</strong> 点击测试按钮验证语音功能
+            </div>
+            <div class="info-item">
+                <strong>3. 检查音量：</strong> 确保设备音量已开启
+            </div>
+            <div class="info-item">
+                <strong>4. 网络连接：</strong> 某些语音需要网络连接
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userInteracted = false;
+        let audioContext = null;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#ff6b6b' : 
+                                 type === 'success' ? '#4caf50' : 
+                                 type === 'warning' ? '#ff9800' : '#fff';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 更新状态显示
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('testStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // 清除日志
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '<div>日志已清除...</div>';
+        }
+
+        // 检测设备信息
+        function detectDeviceInfo() {
+            const userAgent = navigator.userAgent;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+            const isWeChat = /MicroMessenger/i.test(userAgent);
+            const speechSupport = 'speechSynthesis' in window;
+
+            document.getElementById('userAgent').textContent = userAgent;
+            document.getElementById('isMobile').textContent = isMobile ? '是' : '否';
+            document.getElementById('isWeChat').textContent = isWeChat ? '是' : '否';
+            document.getElementById('speechSupport').textContent = speechSupport ? '支持' : '不支持';
+
+            log(`设备检测完成 - 移动设备: ${isMobile}, 微信: ${isWeChat}, 语音支持: ${speechSupport}`);
+
+            if (!speechSupport) {
+                updateStatus('❌ 浏览器不支持语音合成API', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 激活音频功能
+        function activateAudio() {
+            log('开始激活音频功能...');
+            updateStatus('正在激活音频功能...', 'warning');
+
+            try {
+                // 创建音频上下文
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioContext = new AudioContext();
+                    log('音频上下文创建成功');
+                }
+
+                // 标记用户已交互
+                userInteracted = true;
+
+                // 尝试播放一个静音测试
+                const utterance = new SpeechSynthesisUtterance(' ');
+                utterance.volume = 0;
+                utterance.onend = () => {
+                    log('静音测试完成，音频功能已激活', 'success');
+                    updateStatus('✅ 音频功能已激活，可以开始测试', 'success');
+                    
+                    // 启用测试按钮
+                    document.getElementById('testBtn').disabled = false;
+                    document.getElementById('englishBtn').disabled = false;
+                    document.getElementById('activateBtn').textContent = '✅ 已激活';
+                    document.getElementById('activateBtn').disabled = true;
+                };
+
+                utterance.onerror = (event) => {
+                    log(`静音测试失败: ${event.error}`, 'error');
+                    updateStatus('⚠️ 音频激活可能失败，但可以尝试测试', 'warning');
+                    
+                    // 仍然启用测试按钮
+                    document.getElementById('testBtn').disabled = false;
+                    document.getElementById('englishBtn').disabled = false;
+                };
+
+                speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                log(`音频激活失败: ${error.message}`, 'error');
+                updateStatus('❌ 音频激活失败', 'error');
+            }
+        }
+
+        // 测试基础语音
+        function testBasicSpeech() {
+            log('开始测试基础语音...');
+            updateStatus('正在测试基础语音...', 'warning');
+
+            const utterance = new SpeechSynthesisUtterance('你好，这是一个语音测试');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.8;
+            utterance.volume = 1;
+
+            utterance.onstart = () => {
+                log('基础语音播放开始', 'success');
+                updateStatus('🔊 基础语音正在播放...', 'info');
+            };
+
+            utterance.onend = () => {
+                log('基础语音播放完成', 'success');
+                updateStatus('✅ 基础语音测试成功', 'success');
+            };
+
+            utterance.onerror = (event) => {
+                log(`基础语音播放失败: ${event.error}`, 'error');
+                updateStatus('❌ 基础语音测试失败', 'error');
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // 测试英语语音
+        function testEnglishSpeech() {
+            log('开始测试英语语音...');
+            updateStatus('正在测试英语语音...', 'warning');
+
+            const utterance = new SpeechSynthesisUtterance('Hello, this is an English speech test');
+            utterance.lang = 'en-US';
+            utterance.rate = 0.8;
+            utterance.volume = 1;
+
+            utterance.onstart = () => {
+                log('英语语音播放开始', 'success');
+                updateStatus('🔊 英语语音正在播放...', 'info');
+            };
+
+            utterance.onend = () => {
+                log('英语语音播放完成', 'success');
+                updateStatus('✅ 英语语音测试成功', 'success');
+            };
+
+            utterance.onerror = (event) => {
+                log(`英语语音播放失败: ${event.error}`, 'error');
+                updateStatus('❌ 英语语音测试失败', 'error');
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // 加载语音列表
+        function loadVoices() {
+            log('开始加载语音列表...');
+            
+            const voices = speechSynthesis.getVoices();
+            document.getElementById('voiceCount').textContent = voices.length;
+            
+            if (voices.length === 0) {
+                log('语音列表为空，等待加载...', 'warning');
+                
+                // 监听语音列表变化
+                speechSynthesis.onvoiceschanged = () => {
+                    const newVoices = speechSynthesis.getVoices();
+                    document.getElementById('voiceCount').textContent = newVoices.length;
+                    log(`语音列表已更新，共 ${newVoices.length} 个语音`);
+                    
+                    // 显示前5个语音信息
+                    newVoices.slice(0, 5).forEach((voice, index) => {
+                        log(`语音 ${index + 1}: ${voice.name} (${voice.lang}) ${voice.localService ? '[本地]' : '[在线]'}`);
+                    });
+                };
+            } else {
+                log(`已加载 ${voices.length} 个语音`);
+                
+                // 显示前5个语音信息
+                voices.slice(0, 5).forEach((voice, index) => {
+                    log(`语音 ${index + 1}: ${voice.name} (${voice.lang}) ${voice.localService ? '[本地]' : '[在线]'}`);
+                });
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('移动端语音测试页面已加载');
+            
+            if (detectDeviceInfo()) {
+                updateStatus('设备检测完成，请激活音频功能', 'info');
+                loadVoices();
+            }
+        });
+    </script>
+</body>
+</html>
