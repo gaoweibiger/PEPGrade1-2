@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信语音专项测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 22px;
+            color: #00d4aa;
+        }
+        .wechat-info {
+            background: rgba(0, 212, 170, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00d4aa;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .info-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #ffeb3b;
+            display: inline-block;
+            min-width: 100px;
+        }
+        .info-value {
+            margin-left: 10px;
+        }
+        button {
+            background: linear-gradient(45deg, #00d4aa, #007991);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-weight: bold;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            width: calc(50% - 8px);
+            min-height: 45px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        button.full-width {
+            width: calc(100% - 8px);
+        }
+        .status {
+            margin: 12px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.warning { background: rgba(255, 193, 7, 0.3); }
+        .status.info { background: rgba(33, 150, 243, 0.3); }
+        .log {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .controls {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .highlight {
+            background: rgba(255, 235, 59, 0.3);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .step {
+            background: rgba(0, 212, 170, 0.1);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #00d4aa;
+        }
+        .step-number {
+            background: #00d4aa;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 微信语音专项测试</h1>
+        
+        <div class="wechat-info">
+            <h3 style="margin-top: 0; color: #00d4aa;">📱 微信环境检测</h3>
+            <div id="wechatInfo">
+                <div class="info-item">
+                    <span class="info-label">微信版本:</span>
+                    <span class="info-value" id="wechatVersion"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">是否小程序:</span>
+                    <span class="info-value" id="isMiniProgram"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">用户代理:</span>
+                    <span class="info-value" id="userAgent" style="font-size: 11px; word-break: break-all;"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 修复步骤</h3>
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>激活音频功能</strong> - 微信需要用户交互才能播放音频
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>初始化音频上下文</strong> - 创建AudioContext解锁音频
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>测试语音播放</strong> - 使用优化的参数设置
+            </div>
+            
+            <div class="controls">
+                <button onclick="step1_activateAudio()" id="step1Btn" class="full-width">
+                    🎵 步骤1: 激活音频功能
+                </button>
+                <button onclick="step2_initAudioContext()" id="step2Btn" disabled>
+                    🔧 步骤2: 初始化音频上下文
+                </button>
+                <button onclick="step3_testSpeech()" id="step3Btn" disabled>
+                    🎤 步骤3: 测试语音播放
+                </button>
+            </div>
+            
+            <div id="testStatus" class="status info">
+                请按顺序执行修复步骤
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 语音测试</h3>
+            <div class="controls">
+                <button onclick="testBasicSpeech()" id="basicBtn" disabled>🔊 基础测试</button>
+                <button onclick="testEnglishSpeech()" id="englishBtn" disabled>🇺🇸 英语测试</button>
+                <button onclick="testSlowSpeech()" id="slowBtn" disabled>🐌 慢速测试</button>
+                <button onclick="testLoudSpeech()" id="loudBtn" disabled>📢 大声测试</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 详细日志</h3>
+            <button onclick="clearLog()" style="width: auto; padding: 8px 16px; font-size: 12px;">🗑️ 清除</button>
+            <div id="logContainer" class="log">
+                <div>等待开始测试...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>💡 故障排除</h3>
+            <div class="info-item">
+                <strong>🔇 没有声音？</strong> 检查手机音量，确保媒体音量已开启
+            </div>
+            <div class="info-item">
+                <strong>⚠️ 播放失败？</strong> 尝试关闭微信后重新打开，或复制链接到Safari
+            </div>
+            <div class="info-item">
+                <strong>🌐 网络问题？</strong> 某些语音需要网络连接，检查网络状态
+            </div>
+            <div class="info-item">
+                <strong>🔄 仍然无效？</strong> 尝试在其他浏览器中打开（Safari、Chrome）
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userInteracted = false;
+        let audioContext = null;
+        let currentStep = 0;
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#ff6b6b' : 
+                                 type === 'success' ? '#4caf50' : 
+                                 type === 'warning' ? '#ff9800' : '#fff';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 更新状态显示
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('testStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // 清除日志
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '<div>日志已清除...</div>';
+        }
+
+        // 检测微信环境
+        function detectWeChatInfo() {
+            const userAgent = navigator.userAgent;
+            const isWeChat = /MicroMessenger/i.test(userAgent);
+            const wechatVersionMatch = userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+            const isMiniProgram = window.__wxjs_environment === 'miniprogram';
+
+            let wechatVersion = '未检测到';
+            if (wechatVersionMatch) {
+                wechatVersion = `${wechatVersionMatch[1]}.${wechatVersionMatch[2]}.${wechatVersionMatch[3]}`;
+            }
+
+            document.getElementById('wechatVersion').textContent = wechatVersion;
+            document.getElementById('isMiniProgram').textContent = isMiniProgram ? '是' : '否';
+            document.getElementById('userAgent').textContent = userAgent;
+
+            log(`微信环境检测 - 版本: ${wechatVersion}, 小程序: ${isMiniProgram}`);
+
+            if (!isWeChat) {
+                updateStatus('⚠️ 当前不在微信环境中', 'warning');
+                return false;
+            }
+
+            if (isMiniProgram) {
+                updateStatus('❌ 微信小程序不支持Web语音API', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 步骤1: 激活音频功能
+        function step1_activateAudio() {
+            log('=== 步骤1: 开始激活音频功能 ===');
+            updateStatus('正在激活音频功能...', 'warning');
+
+            try {
+                // 标记用户已交互
+                userInteracted = true;
+                log('✅ 用户交互已标记');
+
+                // 播放静音测试
+                const utterance = new SpeechSynthesisUtterance(' ');
+                utterance.volume = 0;
+                utterance.rate = 0.1;
+
+                utterance.onstart = () => {
+                    log('✅ 静音测试开始播放', 'success');
+                };
+
+                utterance.onend = () => {
+                    log('✅ 步骤1完成 - 音频功能已激活', 'success');
+                    updateStatus('✅ 步骤1完成 - 音频功能已激活', 'success');
+                    
+                    currentStep = 1;
+                    document.getElementById('step1Btn').disabled = true;
+                    document.getElementById('step1Btn').textContent = '✅ 步骤1: 已完成';
+                    document.getElementById('step2Btn').disabled = false;
+                };
+
+                utterance.onerror = (event) => {
+                    log(`静音测试失败: ${event.error}`, 'error');
+                    updateStatus('⚠️ 步骤1可能失败，但继续下一步', 'warning');
+                    
+                    currentStep = 1;
+                    document.getElementById('step2Btn').disabled = false;
+                };
+
+                speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                log(`步骤1失败: ${error.message}`, 'error');
+                updateStatus('❌ 步骤1失败', 'error');
+            }
+        }
+
+        // 步骤2: 初始化音频上下文
+        async function step2_initAudioContext() {
+            log('=== 步骤2: 开始初始化音频上下文 ===');
+            updateStatus('正在初始化音频上下文...', 'warning');
+
+            try {
+                // 创建音频上下文
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioContext = new AudioContext();
+                    log('✅ 音频上下文创建成功');
+
+                    // 恢复音频上下文
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                        log('✅ 音频上下文已恢复');
+                    }
+
+                    // 创建静音音频解锁
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    gainNode.gain.value = 0; // 静音
+                    oscillator.frequency.value = 440;
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.01);
+                    
+                    log('✅ 音频解锁完成');
+                }
+
+                log('✅ 步骤2完成 - 音频上下文已初始化', 'success');
+                updateStatus('✅ 步骤2完成 - 音频上下文已初始化', 'success');
+                
+                currentStep = 2;
+                document.getElementById('step2Btn').disabled = true;
+                document.getElementById('step2Btn').textContent = '✅ 步骤2: 已完成';
+                document.getElementById('step3Btn').disabled = false;
+
+            } catch (error) {
+                log(`步骤2失败: ${error.message}`, 'error');
+                updateStatus('❌ 步骤2失败，但可以继续测试', 'warning');
+                document.getElementById('step3Btn').disabled = false;
+            }
+        }
+
+        // 步骤3: 测试语音播放
+        function step3_testSpeech() {
+            log('=== 步骤3: 开始测试语音播放 ===');
+            updateStatus('正在测试语音播放...', 'warning');
+
+            const utterance = new SpeechSynthesisUtterance('微信语音测试');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.7; // 微信8.0+使用慢速
+            utterance.volume = 0.9;
+            utterance.pitch = 0.9;
+
+            utterance.onstart = () => {
+                log('✅ 语音播放开始', 'success');
+                updateStatus('🔊 语音正在播放...', 'info');
+            };
+
+            utterance.onend = () => {
+                log('✅ 步骤3完成 - 语音播放成功', 'success');
+                updateStatus('✅ 步骤3完成 - 语音播放成功！', 'success');
+                
+                currentStep = 3;
+                document.getElementById('step3Btn').disabled = true;
+                document.getElementById('step3Btn').textContent = '✅ 步骤3: 已完成';
+                
+                // 启用所有测试按钮
+                document.getElementById('basicBtn').disabled = false;
+                document.getElementById('englishBtn').disabled = false;
+                document.getElementById('slowBtn').disabled = false;
+                document.getElementById('loudBtn').disabled = false;
+            };
+
+            utterance.onerror = (event) => {
+                log(`语音播放失败: ${event.error}`, 'error');
+                updateStatus('❌ 步骤3失败 - 语音播放失败', 'error');
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        // 测试函数
+        function testBasicSpeech() {
+            log('开始基础语音测试...');
+            const utterance = new SpeechSynthesisUtterance('你好，这是基础语音测试');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.7;
+            utterance.volume = 0.9;
+            
+            utterance.onend = () => log('基础语音测试完成', 'success');
+            utterance.onerror = (e) => log(`基础语音测试失败: ${e.error}`, 'error');
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        function testEnglishSpeech() {
+            log('开始英语语音测试...');
+            const utterance = new SpeechSynthesisUtterance('Hello, this is an English speech test');
+            utterance.lang = 'en-US';
+            utterance.rate = 0.7;
+            utterance.volume = 0.9;
+            
+            utterance.onend = () => log('英语语音测试完成', 'success');
+            utterance.onerror = (e) => log(`英语语音测试失败: ${e.error}`, 'error');
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        function testSlowSpeech() {
+            log('开始慢速语音测试...');
+            const utterance = new SpeechSynthesisUtterance('这是慢速语音测试');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.5;
+            utterance.volume = 0.9;
+            
+            utterance.onend = () => log('慢速语音测试完成', 'success');
+            utterance.onerror = (e) => log(`慢速语音测试失败: ${e.error}`, 'error');
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        function testLoudSpeech() {
+            log('开始大声语音测试...');
+            const utterance = new SpeechSynthesisUtterance('这是大声语音测试');
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.7;
+            utterance.volume = 1.0;
+            utterance.pitch = 1.1;
+            
+            utterance.onend = () => log('大声语音测试完成', 'success');
+            utterance.onerror = (e) => log(`大声语音测试失败: ${e.error}`, 'error');
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('微信语音专项测试页面已加载');
+            
+            if (detectWeChatInfo()) {
+                updateStatus('微信环境检测完成，请开始修复步骤', 'info');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -220,19 +220,43 @@ export class SpeechUtils {
     return false;
   }
 
-  // 初始化微信音频上下文
-  private static initWeChatAudio() {
+  // 初始化微信音频上下文 - 增强版本
+  private static async initWeChatAudio() {
     try {
+      console.log('🔧 开始初始化微信音频上下文...');
+
+      // 创建音频上下文
       if (!this.weChatAudioContext) {
-        this.weChatAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          this.weChatAudioContext = new AudioContext();
+          console.log('✅ 微信音频上下文创建成功');
+        }
       }
 
       // 激活音频上下文
-      if (this.weChatAudioContext.state === 'suspended') {
-        this.weChatAudioContext.resume();
+      if (this.weChatAudioContext && this.weChatAudioContext.state === 'suspended') {
+        await this.weChatAudioContext.resume();
+        console.log('✅ 微信音频上下文已恢复');
       }
 
-      console.log('✅ 微信音频上下文已初始化');
+      // 微信特殊处理：创建一个静音音频来"解锁"音频功能
+      if (this.weChatAudioContext) {
+        const oscillator = this.weChatAudioContext.createOscillator();
+        const gainNode = this.weChatAudioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(this.weChatAudioContext.destination);
+
+        gainNode.gain.value = 0; // 静音
+        oscillator.frequency.value = 440;
+        oscillator.start();
+        oscillator.stop(this.weChatAudioContext.currentTime + 0.01);
+
+        console.log('✅ 微信音频解锁完成');
+      }
+
+      console.log('✅ 微信音频上下文初始化完成');
     } catch (error) {
       console.warn('❌ 微信音频上下文初始化失败:', error);
     }
@@ -436,7 +460,7 @@ export class SpeechUtils {
     }
   }
 
-  // 快速播放实现 - 最小延迟
+  // 快速播放实现 - 微信优化版本
   private static async performFastSpeak(text: string, options?: {
     lang?: string;
     rate?: number;
@@ -445,9 +469,21 @@ export class SpeechUtils {
     retryCount?: number;
   }): Promise<boolean> {
     const retryCount = options?.retryCount || 0;
-    const maxRetries = 1; // 最多重试1次
+    const maxRetries = this.isWeChat ? 2 : 1; // 微信多重试一次
 
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
+      // 微信特殊处理：确保音频上下文已激活
+      if (this.isWeChat && this.weChatAudioContext) {
+        try {
+          if (this.weChatAudioContext.state === 'suspended') {
+            await this.weChatAudioContext.resume();
+            console.log('🔧 微信音频上下文已恢复');
+          }
+        } catch (error) {
+          console.warn('微信音频上下文恢复失败:', error);
+        }
+      }
+
       // 立即停止当前播放，无延迟
       speechSynthesis.cancel();
 
@@ -458,11 +494,31 @@ export class SpeechUtils {
         utterance.voice = this.preferredVoice;
       }
 
-      // 优化的参数设置
+      // 优化的参数设置 - 微信特殊优化
       utterance.lang = options?.lang || 'en-US';
-      utterance.rate = options?.rate || (this.isWeChat ? 0.8 : 0.9); // 提高默认速度
-      utterance.pitch = options?.pitch || 1;
-      utterance.volume = options?.volume || 1;
+
+      // 微信8.0+版本需要特殊的参数设置
+      if (this.isWeChat) {
+        const wechatInfo = this.getWeChatInfo();
+        const majorVersion = parseInt(wechatInfo.version?.split('.')[0] || '0');
+
+        if (majorVersion >= 8) {
+          // 微信8.0+使用更保守的设置
+          utterance.rate = options?.rate || 0.7;
+          utterance.volume = options?.volume || 0.9;
+          utterance.pitch = options?.pitch || 0.9;
+        } else {
+          // 微信7.x及以下
+          utterance.rate = options?.rate || 0.8;
+          utterance.volume = options?.volume || 1;
+          utterance.pitch = options?.pitch || 1;
+        }
+      } else {
+        // 非微信浏览器
+        utterance.rate = options?.rate || 0.9;
+        utterance.volume = options?.volume || 1;
+        utterance.pitch = options?.pitch || 1;
+      }
 
       let hasStarted = false;
       let hasEnded = false;
