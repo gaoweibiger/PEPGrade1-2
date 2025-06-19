@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试 "like it" 连读修正</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        .test-item {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 15px 0;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .original {
+            font-weight: bold;
+            color: #ffeb3b;
+            margin-bottom: 10px;
+        }
+        .corrected {
+            color: #4caf50;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 测试 "like it" 连读修正 (新方法)</h1>
+        
+        <div class="controls">
+            <button onclick="testAllSentences()">🔊 测试所有句子</button>
+            <button onclick="stopSpeech()">⏹️ 停止播放</button>
+        </div>
+        
+        <div class="status" id="status">准备测试...</div>
+        
+        <div id="testResults"></div>
+    </div>
+
+    <script type="module">
+        // 导入语音修正器
+        import { PronunciationCorrector } from '../src/utils/pronunciationCorrector.ts';
+
+        // 测试句子
+        const testSentences = [
+            "Do you like it too?",
+            "I really like it a lot.",
+            "Can you see it clearly?",
+            "Please try it now.",
+            "Do you want it back?",
+            "I need it today.",
+            "Let's make it better.",
+            "You can have it all.",
+            "I love it so much.",
+            "Just take it easy."
+        ];
+
+        let currentSpeech = null;
+
+        // 停止语音
+        window.stopSpeech = function() {
+            if (currentSpeech) {
+                speechSynthesis.cancel();
+                currentSpeech = null;
+                document.getElementById('status').textContent = '已停止播放';
+            }
+        };
+
+        // 语音播放函数
+        function speak(text, rate = 0.8) {
+            return new Promise((resolve, reject) => {
+                if (currentSpeech) {
+                    speechSynthesis.cancel();
+                }
+
+                currentSpeech = new SpeechSynthesisUtterance(text);
+                currentSpeech.rate = rate;
+                currentSpeech.pitch = 1;
+                currentSpeech.volume = 1;
+
+                // 尝试使用英语语音
+                const voices = speechSynthesis.getVoices();
+                const englishVoice = voices.find(voice => 
+                    voice.lang.startsWith('en') && 
+                    (voice.name.includes('Google') || voice.name.includes('Microsoft'))
+                );
+                if (englishVoice) {
+                    currentSpeech.voice = englishVoice;
+                }
+
+                currentSpeech.onend = () => {
+                    currentSpeech = null;
+                    resolve();
+                };
+                currentSpeech.onerror = (error) => {
+                    currentSpeech = null;
+                    reject(error);
+                };
+
+                speechSynthesis.speak(currentSpeech);
+            });
+        }
+
+        // 测试单个句子
+        async function testSentence(original, index) {
+            const corrected = PronunciationCorrector.correctPronunciation(original, {
+                enableLinkingCorrection: true,
+                debugMode: true
+            });
+
+            const testItem = document.createElement('div');
+            testItem.className = 'test-item';
+            testItem.innerHTML = `
+                <div class="original">原句: ${original}</div>
+                <div class="corrected">修正: ${corrected}</div>
+                <button onclick="playOriginal('${original}', ${index})">🔊 播放原句</button>
+                <button onclick="playCorrected('${corrected}', ${index})">🔊 播放修正句</button>
+                <div id="status-${index}" style="margin-top: 10px; font-size: 14px;"></div>
+            `;
+
+            return { element: testItem, original, corrected };
+        }
+
+        // 播放原句
+        window.playOriginal = async function(text, index) {
+            const statusEl = document.getElementById(`status-${index}`);
+            statusEl.textContent = '🔊 播放原句中...';
+            statusEl.style.color = '#ffeb3b';
+            
+            try {
+                await speak(text);
+                statusEl.textContent = '✅ 原句播放完成';
+                statusEl.style.color = '#4caf50';
+            } catch (error) {
+                statusEl.textContent = '❌ 播放失败';
+                statusEl.style.color = '#f44336';
+            }
+        };
+
+        // 播放修正句
+        window.playCorrected = async function(text, index) {
+            const statusEl = document.getElementById(`status-${index}`);
+            statusEl.textContent = '🔊 播放修正句中...';
+            statusEl.style.color = '#ffeb3b';
+            
+            try {
+                await speak(text);
+                statusEl.textContent = '✅ 修正句播放完成';
+                statusEl.style.color = '#4caf50';
+            } catch (error) {
+                statusEl.textContent = '❌ 播放失败';
+                statusEl.style.color = '#f44336';
+            }
+        };
+
+        // 测试所有句子
+        window.testAllSentences = async function() {
+            const resultsContainer = document.getElementById('testResults');
+            const statusEl = document.getElementById('status');
+            
+            resultsContainer.innerHTML = '';
+            statusEl.textContent = '🔄 正在生成测试结果...';
+
+            for (let i = 0; i < testSentences.length; i++) {
+                const result = await testSentence(testSentences[i], i);
+                resultsContainer.appendChild(result.element);
+            }
+
+            statusEl.textContent = `✅ 已生成 ${testSentences.length} 个测试项目，点击按钮试听效果`;
+        };
+
+        // 页面加载完成后自动生成测试
+        document.addEventListener('DOMContentLoaded', () => {
+            // 等待语音API准备就绪
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.addEventListener('voiceschanged', () => {
+                    testAllSentences();
+                });
+            } else {
+                testAllSentences();
+            }
+        });
+    </script>
+</body>
+</html>

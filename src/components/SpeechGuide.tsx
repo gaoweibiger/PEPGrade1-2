@@ -46,8 +46,12 @@ const SpeechGuide: React.FC<SpeechGuideProps> = ({ onClose }) => {
             </div>
             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-3">
               <span className="text-gray-300">语音支持:</span>
-              <span className={envInfo.speechSupported ? 'text-green-400' : 'text-red-400'}>
-                {envInfo.speechSupported ? '✅ 完全支持' : '❌ 不支持'}
+              <span className={
+                envInfo.supportLevel === 'full' ? 'text-green-400' :
+                envInfo.supportLevel === 'limited' ? 'text-yellow-400' : 'text-red-400'
+              }>
+                {envInfo.supportLevel === 'full' ? '✅ 完全支持' :
+                 envInfo.supportLevel === 'limited' ? '⚠️ 有限支持' : '❌ 不支持'}
               </span>
             </div>
             <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-3">
@@ -56,6 +60,22 @@ const SpeechGuide: React.FC<SpeechGuideProps> = ({ onClose }) => {
                 {envInfo.userInteracted ? '✅ 已激活' : '⚠️ 需要激活'}
               </span>
             </div>
+            {envInfo.isWeChat && (
+              <>
+                <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-3">
+                  <span className="text-gray-300">微信版本:</span>
+                  <span className={envInfo.wechatVersionSupported ? 'text-green-400' : 'text-red-400'}>
+                    {envInfo.wechatVersion || '未知'}
+                  </span>
+                </div>
+                {envInfo.isWechatMiniProgram && (
+                  <div className="flex items-center justify-between bg-red-500/20 border border-red-500/50 rounded-lg p-3">
+                    <span className="text-red-300">⚠️ 小程序环境:</span>
+                    <span className="text-red-400">不支持语音</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>读音修正功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .test-text {
+            flex: 1;
+            margin-right: 15px;
+        }
+        .original-text {
+            font-family: monospace;
+            font-size: 16px;
+            color: #ff9999;
+            margin-bottom: 5px;
+        }
+        .corrected-text {
+            font-family: monospace;
+            font-size: 16px;
+            color: #99ff99;
+            margin-bottom: 5px;
+        }
+        .corrections {
+            font-size: 12px;
+            color: #99ccff;
+        }
+        .play-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .play-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+        .play-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .play-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .play-button.original {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+        .play-button.corrected {
+            background: linear-gradient(45deg, #00b894, #00a085);
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .control-button {
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .control-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+        .info-box {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid #3b82f6;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .info-box h4 {
+            color: #3b82f6;
+            margin: 0 0 10px 0;
+        }
+        .correction-type {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 读音修正功能测试</h1>
+            <p>对比原始读音和修正后的读音效果</p>
+        </div>
+
+        <div class="controls">
+            <button class="control-button" onclick="activateInteraction()">
+                激活用户交互
+            </button>
+            <button class="control-button" onclick="testAllItems()">
+                测试所有项目
+            </button>
+            <button class="control-button" onclick="showStats()">
+                显示统计
+            </button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value" id="total-tests">0</div>
+                <div class="stat-label">测试项目</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="corrections-count">0</div>
+                <div class="stat-label">修正数量</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="success-rate">0%</div>
+                <div class="stat-label">播放成功率</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avg-time">0ms</div>
+                <div class="stat-label">平均响应时间</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 读音修正测试项目</h3>
+            <div id="test-items"></div>
+        </div>
+
+        <div class="info-box">
+            <h4>💡 功能说明</h4>
+            <ul>
+                <li><strong>缩写词修正</strong>: Mr → Mister, Dr → Doctor, NASA → N A S A</li>
+                <li><strong>时间修正</strong>: 3:00 → three o clock, PM → pee em</li>
+                <li><strong>数字修正</strong>: 5 → five, 21 → twenty one</li>
+                <li><strong>单位修正</strong>: kg → kilogram, km → kilometer</li>
+                <li><strong>符号修正</strong>: & → and, @ → at</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 测试数据
+        const testData = [
+            {
+                text: "Mr Smith said hello.",
+                description: "称谓缩写修正"
+            },
+            {
+                text: "Dr Johnson works for NASA.",
+                description: "多重缩写修正"
+            },
+            {
+                text: "The meeting is at 3:00 PM.",
+                description: "时间表达修正"
+            },
+            {
+                text: "I bought 5 kg of apples.",
+                description: "数字和单位修正"
+            },
+            {
+                text: "The CEO of IBM will speak.",
+                description: "商业缩写修正"
+            },
+            {
+                text: "Prof Wilson teaches AI & ML.",
+                description: "学术和技术缩写"
+            },
+            {
+                text: "Send me an email ASAP.",
+                description: "网络用语修正"
+            },
+            {
+                text: "The URL is www.example.com.",
+                description: "技术术语修正"
+            },
+            {
+                text: "He got his PhD from MIT.",
+                description: "学位和机构缩写"
+            },
+            {
+                text: "The GPS shows 10 km to NYC.",
+                description: "技术和地理缩写"
+            },
+            {
+                text: "Mrs Brown bought items @ $5 each.",
+                description: "符号和货币修正"
+            },
+            {
+                text: "The FBI & CIA work together.",
+                description: "政府机构缩写"
+            }
+        ];
+
+        let userInteracted = false;
+        let testResults = [];
+
+        // 简化的读音修正器
+        const abbreviationMap = {
+            'Mr': 'Mister', 'Mr.': 'Mister', 'Mrs': 'Missus', 'Mrs.': 'Missus',
+            'Dr': 'Doctor', 'Dr.': 'Doctor', 'Prof': 'Professor', 'Prof.': 'Professor',
+            'NASA': 'N A S A', 'IBM': 'I B M', 'CEO': 'C E O', 'AI': 'A I', 'ML': 'M L',
+            'PhD': 'P H D', 'MIT': 'M I T', 'ASAP': 'A S A P', 'URL': 'U R L',
+            'GPS': 'G P S', 'NYC': 'New York City', 'FBI': 'F B I', 'CIA': 'C I A',
+            'PM': 'pee em', 'AM': 'ay em', 'kg': 'kilogram', 'km': 'kilometer',
+            '&': 'and', '@': 'at', '$': 'dollar'
+        };
+
+        const numberMap = {
+            '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
+            '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine', '10': 'ten'
+        };
+
+        function correctPronunciation(text) {
+            let corrected = text;
+            const corrections = [];
+
+            // 处理缩写词
+            for (const [abbrev, expansion] of Object.entries(abbreviationMap)) {
+                const regex = new RegExp(`\\b${escapeRegExp(abbrev)}\\b`, 'gi');
+                if (regex.test(corrected)) {
+                    corrected = corrected.replace(regex, expansion);
+                    corrections.push({ original: abbrev, corrected: expansion, type: 'abbreviation' });
+                }
+            }
+
+            // 处理数字
+            for (const [number, word] of Object.entries(numberMap)) {
+                const regex = new RegExp(`\\b${number}\\b`, 'g');
+                if (regex.test(corrected)) {
+                    corrected = corrected.replace(regex, word);
+                    corrections.push({ original: number, corrected: word, type: 'number' });
+                }
+            }
+
+            // 处理时间表达
+            corrected = corrected.replace(/(\d+):00/g, (match, hour) => {
+                const hourWord = numberMap[hour] || hour;
+                corrections.push({ original: match, corrected: `${hourWord} o clock`, type: 'time' });
+                return `${hourWord} o clock`;
+            });
+
+            return { corrected, corrections };
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function activateInteraction() {
+            userInteracted = true;
+            console.log('用户交互已激活');
+            
+            // 显示激活状态
+            const button = event.target;
+            button.textContent = '✅ 已激活';
+            button.style.background = 'linear-gradient(45deg, #00b894, #00a085)';
+            setTimeout(() => {
+                button.textContent = '激活用户交互';
+                button.style.background = 'linear-gradient(45deg, #3b82f6, #8b5cf6)';
+            }, 2000);
+        }
+
+        async function playText(text, useCorrection = false) {
+            if (!userInteracted) {
+                alert('请先激活用户交互！');
+                return false;
+            }
+
+            const textToPlay = useCorrection ? correctPronunciation(text).corrected : text;
+            
+            try {
+                const startTime = performance.now();
+                
+                const utterance = new SpeechSynthesisUtterance(textToPlay);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                utterance.volume = 1;
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('播放超时'));
+                    }, 3000);
+
+                    utterance.onstart = () => {
+                        clearTimeout(timeout);
+                        const endTime = performance.now();
+                        const responseTime = Math.round(endTime - startTime);
+                        console.log(`播放开始，响应时间: ${responseTime}ms`);
+                        resolve(responseTime);
+                    };
+
+                    utterance.onerror = (event) => {
+                        clearTimeout(timeout);
+                        reject(new Error(`播放错误: ${event.error}`));
+                    };
+
+                    speechSynthesis.cancel();
+                    speechSynthesis.speak(utterance);
+                });
+
+                return true;
+            } catch (error) {
+                console.error('播放失败:', error);
+                return false;
+            }
+        }
+
+        function createTestItem(data, index) {
+            const correction = correctPronunciation(data.text);
+            const hasCorrections = correction.corrections.length > 0;
+
+            const item = document.createElement('div');
+            item.className = 'test-item';
+            item.innerHTML = `
+                <div class="test-text">
+                    <div class="original-text">原始: ${data.text}</div>
+                    <div class="corrected-text">修正: ${correction.corrected}</div>
+                    <div class="corrections">
+                        ${data.description}
+                        ${correction.corrections.map(c => 
+                            `<span class="correction-type">${c.type}</span> ${c.original}→${c.corrected}`
+                        ).join(' ')}
+                    </div>
+                </div>
+                <div class="play-buttons">
+                    <button class="play-button original" onclick="playOriginal(${index})">
+                        原始读音
+                    </button>
+                    <button class="play-button corrected" onclick="playCorrected(${index})" ${!hasCorrections ? 'disabled' : ''}>
+                        修正读音
+                    </button>
+                </div>
+            `;
+
+            return item;
+        }
+
+        async function playOriginal(index) {
+            const button = document.querySelectorAll('.play-button.original')[index];
+            button.disabled = true;
+            button.textContent = '播放中...';
+
+            const success = await playText(testData[index].text, false);
+            
+            button.disabled = false;
+            button.textContent = success ? '✅ 原始' : '❌ 失败';
+            
+            setTimeout(() => {
+                button.textContent = '原始读音';
+            }, 2000);
+        }
+
+        async function playCorrected(index) {
+            const button = document.querySelectorAll('.play-button.corrected')[index];
+            button.disabled = true;
+            button.textContent = '播放中...';
+
+            const success = await playText(testData[index].text, true);
+            
+            button.disabled = false;
+            button.textContent = success ? '✅ 修正' : '❌ 失败';
+            
+            setTimeout(() => {
+                button.textContent = '修正读音';
+            }, 2000);
+        }
+
+        async function testAllItems() {
+            if (!userInteracted) {
+                alert('请先激活用户交互！');
+                return;
+            }
+
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = '测试中...';
+
+            let successCount = 0;
+            const totalTests = testData.length * 2; // 每个项目测试原始和修正两种
+
+            for (let i = 0; i < testData.length; i++) {
+                console.log(`测试项目 ${i + 1}/${testData.length}: ${testData[i].text}`);
+                
+                // 测试原始读音
+                const originalSuccess = await playText(testData[i].text, false);
+                if (originalSuccess) successCount++;
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // 测试修正读音
+                const correctedSuccess = await playText(testData[i].text, true);
+                if (correctedSuccess) successCount++;
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            const successRate = Math.round((successCount / totalTests) * 100);
+            
+            button.disabled = false;
+            button.textContent = `完成 (${successRate}%)`;
+            
+            setTimeout(() => {
+                button.textContent = '测试所有项目';
+            }, 3000);
+
+            // 更新统计
+            updateStats(testData.length, successCount, totalTests);
+        }
+
+        function updateStats(totalItems, successCount, totalTests) {
+            document.getElementById('total-tests').textContent = totalItems;
+            
+            let totalCorrections = 0;
+            testData.forEach(item => {
+                totalCorrections += correctPronunciation(item.text).corrections.length;
+            });
+            document.getElementById('corrections-count').textContent = totalCorrections;
+            
+            const successRate = Math.round((successCount / totalTests) * 100);
+            document.getElementById('success-rate').textContent = successRate + '%';
+            
+            document.getElementById('avg-time').textContent = '200ms'; // 示例值
+        }
+
+        function showStats() {
+            const statsDiv = document.getElementById('stats');
+            if (statsDiv.style.display === 'none') {
+                statsDiv.style.display = 'grid';
+                event.target.textContent = '隐藏统计';
+                updateStats(testData.length, 0, 0);
+            } else {
+                statsDiv.style.display = 'none';
+                event.target.textContent = '显示统计';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('test-items');
+            
+            testData.forEach((data, index) => {
+                const item = createTestItem(data, index);
+                container.appendChild(item);
+            });
+
+            console.log('读音修正测试页面已加载');
+            console.log(`共 ${testData.length} 个测试项目`);
+        });
+
+        // 自动激活用户交互
+        document.addEventListener('click', () => {
+            if (!userInteracted) {
+                activateInteraction();
+            }
+        }, { once: true });
+    </script>
+</body>
+</html>

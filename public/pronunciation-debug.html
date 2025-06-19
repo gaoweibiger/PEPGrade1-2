@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发音修正调试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .test-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        .text-input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        .speak-btn {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .speak-btn:hover {
+            background: #45a049;
+        }
+        .correction-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .original { color: #ffcccb; }
+        .corrected { color: #90EE90; }
+        .debug-btn {
+            background: #FF9800;
+            margin-left: 10px;
+        }
+        .debug-btn:hover {
+            background: #F57C00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 发音修正调试工具</h1>
+        
+        <div class="test-section">
+            <h2>连读问题测试</h2>
+            <div class="test-item">
+                <input type="text" class="text-input" value="in the evening" placeholder="输入要测试的文本">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+            <div class="test-item">
+                <input type="text" class="text-input" value="in the morning" placeholder="输入要测试的文本">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+            <div class="test-item">
+                <input type="text" class="text-input" value="the evening" placeholder="输入要测试的文本">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+            <div class="test-item">
+                <input type="text" class="text-input" value="the apple" placeholder="输入要测试的文本">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+            <div class="test-item">
+                <input type="text" class="text-input" value="My teeth are clean" placeholder="输入要测试的文本">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>自定义测试</h2>
+            <div class="test-item">
+                <input type="text" class="text-input" placeholder="输入任意文本进行测试">
+                <button class="speak-btn" onclick="testPronunciation(this)">🔊 播放</button>
+                <button class="speak-btn debug-btn" onclick="debugPronunciation(this)">🔧 调试</button>
+            </div>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // 简化的发音修正器（用于调试）
+        class PronunciationCorrector {
+            static linkingMap = {
+                'the evening': 'the, evening',
+                'the apple': 'the, apple',
+                'the orange': 'the, orange',
+                'in the evening': 'in the, evening',
+                'in the afternoon': 'in the, afternoon',
+                'in the morning': 'in the, morning',
+                'teeth are': 'teeth, are',
+                'hands are': 'hands, are',
+                'books are': 'books, are'
+            };
+
+            static correctLinking(text) {
+                let result = text;
+                const corrections = [];
+
+                // 处理预定义的连读修正
+                for (const [original, corrected] of Object.entries(this.linkingMap)) {
+                    const regex = new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    if (regex.test(result)) {
+                        result = result.replace(regex, corrected);
+                        corrections.push({
+                            type: 'linking_correction',
+                            original: original,
+                            corrected: corrected
+                        });
+                    }
+                }
+
+                // 通用连读规则：the + 元音开头的单词 (使用 "thuh" 避免连读)
+                result = result.replace(/\bthe\s+([aeiouAEIOU]\w*)/gi, (match, word) => {
+                    // 检查是否已经被预定义规则处理过
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key =>
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+
+                    if (!alreadyProcessed) {
+                        const corrected = `the, ${word}`;
+                        corrections.push({
+                            type: 'linking_correction',
+                            original: match,
+                            corrected: corrected
+                        });
+                        return corrected;
+                    }
+                    return match;
+                });
+
+                // 处理 "in the" + 元音开头的单词的特殊情况
+                result = result.replace(/\bin\s+the\s+([aeiouAEIOU]\w*)/gi, (match, word) => {
+                    // 检查是否已经被预定义规则处理过
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key =>
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+
+                    if (!alreadyProcessed) {
+                        const corrected = `in the, ${word}`;
+                        corrections.push({
+                            type: 'linking_correction',
+                            original: match,
+                            corrected: corrected
+                        });
+                        return corrected;
+                    }
+                    return match;
+                });
+
+                // 通用连读规则：辅音结尾的单词 + are (避免连读)
+                result = result.replace(/\b(\w*[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ])\s+are\b/gi, (match, word) => {
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key =>
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+
+                    if (!alreadyProcessed) {
+                        const corrected = `${word}, are`;
+                        corrections.push({
+                            type: 'linking_correction',
+                            original: match,
+                            corrected: corrected
+                        });
+                        return corrected;
+                    }
+                    return match;
+                });
+
+                return { result, corrections };
+            }
+
+            static quickCorrect(text) {
+                const { result } = this.correctLinking(text);
+                return result;
+            }
+
+            static previewCorrections(text) {
+                const { corrections } = this.correctLinking(text);
+                return corrections;
+            }
+        }
+
+        function testPronunciation(button) {
+            const input = button.parentElement.querySelector('.text-input');
+            const text = input.value.trim();
+            
+            if (!text) return;
+
+            // 应用发音修正
+            const correctedText = PronunciationCorrector.quickCorrect(text);
+            
+            console.log(`原文: "${text}"`);
+            console.log(`修正后: "${correctedText}"`);
+
+            // 播放语音
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(correctedText);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                speechSynthesis.speak(utterance);
+            } else {
+                alert('您的浏览器不支持语音合成功能');
+            }
+        }
+
+        function debugPronunciation(button) {
+            const input = button.parentElement.querySelector('.text-input');
+            const text = input.value.trim();
+            
+            if (!text) return;
+
+            const correctedText = PronunciationCorrector.quickCorrect(text);
+            const corrections = PronunciationCorrector.previewCorrections(text);
+
+            // 显示调试信息
+            let debugInfo = `
+                <div class="correction-info">
+                    <strong>调试信息:</strong><br>
+                    <span class="original">原文: "${text}"</span><br>
+                    <span class="corrected">修正后: "${correctedText}"</span><br>
+            `;
+
+            if (corrections.length > 0) {
+                debugInfo += '<strong>应用的修正:</strong><br>';
+                corrections.forEach(correction => {
+                    debugInfo += `• ${correction.type}: "${correction.original}" → "${correction.corrected}"<br>`;
+                });
+            } else {
+                debugInfo += '<strong>无需修正</strong><br>';
+            }
+
+            debugInfo += '</div>';
+
+            // 清除之前的调试信息
+            const existingInfo = button.parentElement.querySelector('.correction-info');
+            if (existingInfo) {
+                existingInfo.remove();
+            }
+
+            // 添加新的调试信息
+            button.parentElement.insertAdjacentHTML('afterend', debugInfo);
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎵 发音修正调试工具已加载');
+            console.log('点击"播放"按钮测试语音，点击"调试"按钮查看修正详情');
+        });
+    </script>
+</body>
+</html>

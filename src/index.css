@@ -1,3 +1,90 @@
+/* 导入挑战结果页面样式 */
+@import './styles/challenge-result.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 撒花特效动画 */
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confettiRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 满分时的额外闪烁效果 */
+@keyframes perfectScoreGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.6);
+  }
+}
+
+/* 满分成就徽章闪光效果 */
+@keyframes perfectBadgeShine {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+    opacity: 0;
+  }
+}
+
+/* 满分成就文字闪烁效果 */
+@keyframes perfectTextGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 215, 0, 0.6);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 1), 0 0 30px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 165, 0, 0.6);
+  }
+}
+
+/* 满分光环脉冲效果 */
+@keyframes perfectHalo {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.perfect-score {
+  animation: perfectScoreGlow 2s ease-in-out infinite;
+}
+
+.perfect-badge-shine {
+  animation: perfectBadgeShine 3s ease-in-out infinite;
+}
+
+.perfect-text-glow {
+  animation: perfectTextGlow 2s ease-in-out infinite;
+}
+
+.perfect-halo {
+  animation: perfectHalo 2s ease-in-out infinite;
+}

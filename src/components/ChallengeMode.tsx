@@ -3,6 +3,8 @@ import { ArrowLeft, Volume2, CheckCircle, XCircle, RotateCcw, Trophy, Eye, Star,
 import { WordItem, PhraseItem, SentenceItem, getAllWords, getAllPhrases, getAllSentences, shuffleArray } from '../data/pepData';
 import { useSpeech } from '../hooks/useSpeech';
 import EnhancedSpeechButton from './EnhancedSpeechButton';
+import { AudioUtils } from '../utils/audioUtils';
+import ChallengeResult from './ChallengeResult';
 
 interface ChallengeModeProps {
   onBack: () => void;
@@ -33,6 +35,18 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
   const [answerRecords, setAnswerRecords] = useState<AnswerRecord[]>([]);
   const [showWrongAnswers, setShowWrongAnswers] = useState(false);
   const [particles, setParticles] = useState<Array<{id: number, x: number, y: number}>>([]);
+  const [confetti, setConfetti] = useState<Array<{
+    id: number,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    color: string,
+    size: number,
+    rotation: number,
+    rotationSpeed: number
+  }>>([]);
+  const [showConfetti, setShowConfetti] = useState(false);
   const { speak } = useSpeech();
 
   // 生成粒子效果
@@ -45,13 +59,37 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
     setParticles(newParticles);
   };
 
+  // 生成撒花特效
+  const generateConfetti = () => {
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+    const newConfetti = Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: -10,
+      vx: (Math.random() - 0.5) * 2,
+      vy: Math.random() * 3 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 8 + 4,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 10
+    }));
+    setConfetti(newConfetti);
+    setShowConfetti(true);
+
+    // 3秒后清除撒花效果
+    setTimeout(() => {
+      setShowConfetti(false);
+      setConfetti([]);
+    }, 3000);
+  };
+
   useEffect(() => {
     generateParticles();
   }, []);
 
   const generateQuestions = () => {
     let allItems: QuestionItem[] = [];
-    
+
     switch (mode) {
       case 'words':
         allItems = getAllWords();
@@ -67,16 +105,37 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
         break;
     }
 
-    const shuffledItems = shuffleArray(allItems).slice(0, 10);
-    
-    const generatedQuestions: Question[] = shuffledItems.map(item => {
+    console.log(`${mode} 模式下可用题目数量:`, allItems.length);
+
+    // 确保有足够的题目，如果不足5个，就重复使用
+    let selectedItems: QuestionItem[] = [];
+    if (allItems.length >= 5) {
+      selectedItems = shuffleArray(allItems).slice(0, 5);
+    } else {
+      // 如果题目不足5个，重复使用直到达到5个
+      const repeatedItems = [];
+      for (let i = 0; i < 5; i++) {
+        repeatedItems.push(allItems[i % allItems.length]);
+      }
+      selectedItems = shuffleArray(repeatedItems);
+    }
+
+    const generatedQuestions: Question[] = selectedItems.map(item => {
       const correctAnswer = item.chinese;
+
+      // 从所有题目中选择错误答案，确保有足够的选项
+      let allOptionsPool = allItems;
+      if (allItems.length < 4) {
+        // 如果选项池太小，从所有类型中选择
+        allOptionsPool = [...getAllWords(), ...getAllPhrases(), ...getAllSentences()];
+      }
+
       const wrongAnswers = shuffleArray(
-        allItems.filter(i => i.chinese !== correctAnswer).map(i => i.chinese)
+        allOptionsPool.filter(i => i.chinese !== correctAnswer).map(i => i.chinese)
       ).slice(0, 3);
-      
+
       const options = shuffleArray([correctAnswer, ...wrongAnswers]);
-      
+
       return {
         item,
         options,
@@ -84,6 +143,7 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
       };
     });
 
+    console.log('生成的题目数量:', generatedQuestions.length);
     setQuestions(generatedQuestions);
     setCurrentQuestion(0);
     setScore(0);
@@ -93,39 +153,82 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
   };
 
   useEffect(() => {
+    console.log('模式切换到:', mode);
     generateQuestions();
   }, [mode]);
+
+  // 预加载音频文件
+  useEffect(() => {
+    AudioUtils.preloadAudios(['/ok.mp3']).catch(error => {
+      console.warn('音频预加载失败:', error);
+    });
+
+    // 组件卸载时清理音频缓存
+    return () => {
+      AudioUtils.clearCache();
+    };
+  }, []);
 
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswer(answer);
   };
 
   const handleSubmitAnswer = () => {
-    const isCorrect = selectedAnswer === questions[currentQuestion].correctAnswer;
+    const currentQ = questions[currentQuestion];
+    const isCorrect = selectedAnswer.trim() === currentQ.correctAnswer.trim();
+
+    console.log('答题详情:', {
+      题目: currentQ.item.english,
+      用户答案: `"${selectedAnswer}"`,
+      正确答案: `"${currentQ.correctAnswer}"`,
+      是否正确: isCorrect,
+      当前题号: currentQuestion + 1
+    });
+
     const newRecord: AnswerRecord = {
-      question: questions[currentQuestion],
+      question: currentQ,
       userAnswer: selectedAnswer,
       isCorrect
     };
-    
+
     const newRecords = [...answerRecords, newRecord];
     setAnswerRecords(newRecords);
-    
+
     if (isCorrect) {
       setScore(score + 1);
+      console.log('答对了！当前得分:', score + 1);
       // 正确答案时生成庆祝粒子
       generateParticles();
+    } else {
+      console.log('答错了！当前得分:', score);
     }
-    
+
     setShowResult(true);
     
     setTimeout(() => {
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(currentQuestion + 1);
+      const nextQuestionIndex = currentQuestion + 1;
+      console.log(`当前题目: ${currentQuestion + 1}, 总题目: ${questions.length}, 下一题: ${nextQuestionIndex + 1}`);
+
+      if (nextQuestionIndex < questions.length && nextQuestionIndex < 5) {
+        // 还有题目，继续下一题
+        setCurrentQuestion(nextQuestionIndex);
         setSelectedAnswer('');
         setShowResult(false);
+        console.log(`进入第 ${nextQuestionIndex + 1} 题`);
       } else {
+        // 完成所有题目或达到5题
+        console.log('挑战完成！最终得分:', score + (isCorrect ? 1 : 0));
         setGameComplete(true);
+        // 如果全部正确，触发撒花特效和播放音频
+        const finalScore = score + (isCorrect ? 1 : 0);
+        if (finalScore === 5) {
+          console.log('满分！触发撒花特效和播放音频');
+          generateConfetti();
+          // 播放成功音效
+          AudioUtils.playSuccessSound().catch(error => {
+            console.warn('播放成功音效失败:', error);
+          });
+        }
       }
     }, 2000);
   };
@@ -141,15 +244,15 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
   };
 
   const getScoreColor = () => {
-    if (score >= 8) return 'text-green-400';
-    if (score >= 6) return 'text-yellow-400';
+    if (score >= 4) return 'text-green-400';
+    if (score >= 3) return 'text-yellow-400';
     return 'text-red-400';
   };
 
   const getScoreMessage = () => {
-    if (score >= 9) return '完美！你是英语小天才！🌟';
-    if (score >= 7) return '很棒！继续加油！🎉';
-    if (score >= 5) return '不错！还有进步空间！💪';
+    if (score >= 5) return '完美！你是英语小天才！🌟';
+    if (score >= 4) return '很棒！继续加油！🎉';
+    if (score >= 3) return '不错！还有进步空间！💪';
     return '加油！多练习会更好！📚';
   };
 
@@ -234,7 +337,7 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
               />
             ))}
           </div>
-          
+
           <div className="relative z-10 p-4 sm:p-6">
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center mb-6 sm:mb-8">
@@ -246,7 +349,7 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
                   <span className="text-sm sm:text-base">返回成绩</span>
                 </button>
               </div>
-              
+
               <WrongAnswersView />
             </div>
           </div>
@@ -254,96 +357,18 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
       );
     }
 
+    // 使用新的炫酷结果页面
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 relative overflow-hidden">
-        {/* 动态背景效果 */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-blue-600/10 to-purple-600/10 animate-pulse"></div>
-          {particles.map((particle) => (
-            <div
-              key={particle.id}
-              className="absolute w-2 h-2 sm:w-3 sm:h-3 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full animate-bounce opacity-70"
-              style={{
-                left: `${particle.x}%`,
-                top: `${particle.y}%`,
-                animationDelay: `${particle.id * 0.2}s`,
-                animationDuration: `${3 + Math.random() * 2}s`
-              }}
-            />
-          ))}
-        </div>
-        
-        <div className="relative z-10 p-4 sm:p-6 flex items-center justify-center min-h-screen">
-          <div className="bg-slate-800/60 backdrop-blur-lg rounded-2xl sm:rounded-3xl p-8 sm:p-12 border border-purple-500/30 text-center max-w-2xl w-full shadow-2xl">
-            {/* 成就徽章 */}
-            <div className="relative mb-6 sm:mb-8">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-purple-600 via-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-2xl animate-pulse">
-                <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
-              </div>
-              {score >= 8 && (
-                <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center animate-spin">
-                  <Star className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                </div>
-              )}
-            </div>
-            
-            <h2 className="text-3xl sm:text-5xl font-bold text-white mb-4 sm:mb-6 bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              挑战完成！
-            </h2>
-            
-            <div className={`text-6xl sm:text-8xl font-bold mb-4 sm:mb-6 ${getScoreColor()} drop-shadow-lg`}>
-              {score}/10
-            </div>
-            
-            <p className="text-xl sm:text-3xl text-gray-300 mb-6 sm:mb-8 font-semibold">{getScoreMessage()}</p>
-            
-            {/* 详细统计 */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-              <div className="bg-green-600/20 rounded-xl p-3 sm:p-4 border border-green-500/30">
-                <div className="text-xl sm:text-2xl font-bold text-green-400">{score}</div>
-                <div className="text-xs sm:text-sm text-green-300">正确</div>
-              </div>
-              <div className="bg-red-600/20 rounded-xl p-3 sm:p-4 border border-red-500/30">
-                <div className="text-xl sm:text-2xl font-bold text-red-400">{10 - score}</div>
-                <div className="text-xs sm:text-sm text-red-300">错误</div>
-              </div>
-              <div className="bg-blue-600/20 rounded-xl p-3 sm:p-4 border border-blue-500/30">
-                <div className="text-xl sm:text-2xl font-bold text-blue-400">{Math.round((score / 10) * 100)}%</div>
-                <div className="text-xs sm:text-sm text-blue-300">正确率</div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col space-y-3 sm:space-y-4">
-              <button
-                onClick={generateQuestions}
-                className="flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
-              >
-                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-sm sm:text-base">再来一次</span>
-              </button>
-              
-              {wrongAnswers.length > 0 && (
-                <button
-                  onClick={() => setShowWrongAnswers(true)}
-                  className="flex items-center justify-center space-x-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg"
-                >
-                  <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-sm sm:text-base">查看错题 ({wrongAnswers.length})</span>
-                </button>
-              )}
-              
-              <button
-                onClick={onBack}
-                className="flex items-center justify-center space-x-2 bg-slate-700/80 hover:bg-slate-600/80 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-300 shadow-lg active:scale-95"
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-sm sm:text-base">返回主页</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ChallengeResult
+        score={score}
+        totalQuestions={5}
+        wrongAnswers={wrongAnswers}
+        onRestart={generateQuestions}
+        onBack={onBack}
+        onShowWrongAnswers={() => setShowWrongAnswers(true)}
+      />
     );
+
   }
 
   if (questions.length === 0) {
@@ -395,7 +420,7 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
               </h2>
               <div className="flex items-center justify-center space-x-1 sm:space-x-2 text-purple-300">
                 <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-sm sm:text-lg font-semibold">第 {currentQuestion + 1} 题 / 共 10 题</span>
+                <span className="text-sm sm:text-lg font-semibold">第 {currentQuestion + 1} 题 / 共 5 题</span>
               </div>
             </div>
             
@@ -413,9 +438,9 @@ const ChallengeMode: React.FC<ChallengeModeProps> = ({ onBack, mode }) => {
           {/* 移动端优化的进度条 */}
           <div className="mb-8 sm:mb-10">
             <div className="relative w-full h-3 sm:h-4 bg-slate-800/50 rounded-full overflow-hidden border border-slate-700/50 backdrop-blur-sm">
-              <div 
+              <div
                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                style={{ width: `${((currentQuestion + 1) / 10) * 100}%` }}
+                style={{ width: `${((currentQuestion + 1) / 5) * 100}%` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent rounded-full animate-pulse"></div>
               </div>

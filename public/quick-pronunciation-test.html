@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速发音测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .original { color: #dc3545; font-weight: bold; }
+        .corrected { color: #28a745; font-weight: bold; }
+        .match { color: #28a745; }
+        .no-match { color: #dc3545; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 快速发音修正测试</h1>
+        <button onclick="runTests()">运行测试</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // 简化的发音修正器
+        class PronunciationCorrector {
+            static linkingMap = {
+                'the evening': 'the, evening',
+                'the apple': 'the, apple',
+                'the orange': 'the, orange',
+                'in the evening': 'in the, evening',
+                'in the afternoon': 'in the, afternoon',
+                'in the morning': 'in the, morning',
+                'teeth are': 'teeth, are',
+                'hands are': 'hands, are',
+                'books are': 'books, are'
+            };
+
+            static quickCorrect(text) {
+                let result = text;
+
+                // 处理预定义的连读修正
+                for (const [original, corrected] of Object.entries(this.linkingMap)) {
+                    const regex = new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    if (regex.test(result)) {
+                        result = result.replace(regex, corrected);
+                    }
+                }
+
+                // 通用连读规则：the + 元音开头的单词
+                result = result.replace(/\bthe\s+([aeiouAEIOU]\w*)/gi, (match, word) => {
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key => 
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+                    
+                    if (!alreadyProcessed) {
+                        return `the, ${word}`;
+                    }
+                    return match;
+                });
+
+                // 处理 "in the" + 元音开头的单词的特殊情况
+                result = result.replace(/\bin\s+the\s+([aeiouAEIOU]\w*)/gi, (match, word) => {
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key =>
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+
+                    if (!alreadyProcessed) {
+                        return `in the, ${word}`;
+                    }
+                    return match;
+                });
+
+                // 通用连读规则：辅音结尾的单词 + are (避免连读)
+                result = result.replace(/\b(\w*[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ])\s+are\b/gi, (match, word) => {
+                    const alreadyProcessed = Object.keys(this.linkingMap).some(key =>
+                        key.toLowerCase().includes(match.toLowerCase())
+                    );
+
+                    if (!alreadyProcessed) {
+                        return `${word}, are`;
+                    }
+                    return match;
+                });
+
+                return result;
+            }
+        }
+
+        function runTests() {
+            const testCases = [
+                { text: 'in the evening', expected: 'in the, evening' },
+                { text: 'in the morning', expected: 'in the, morning' },
+                { text: 'the evening', expected: 'the, evening' },
+                { text: 'the apple', expected: 'the, apple' },
+                { text: 'in the afternoon', expected: 'in the, afternoon' },
+                { text: 'the elephant', expected: 'the, elephant' },
+                { text: 'the umbrella', expected: 'the, umbrella' },
+                { text: 'My teeth are clean', expected: 'My teeth, are clean' },
+                { text: 'teeth are', expected: 'teeth, are' },
+                { text: 'hands are', expected: 'hands, are' },
+                { text: 'books are', expected: 'books, are' }
+            ];
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            console.log('🎵 开始运行发音修正测试...\n');
+
+            testCases.forEach((testCase, index) => {
+                const corrected = PronunciationCorrector.quickCorrect(testCase.text);
+                const isMatch = corrected === testCase.expected;
+
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'test-result';
+                resultDiv.innerHTML = `
+                    <div><span class="original">原文:</span> "${testCase.text}"</div>
+                    <div><span class="corrected">修正后:</span> "${corrected}"</div>
+                    <div>期望: "${testCase.expected}"</div>
+                    <div class="${isMatch ? 'match' : 'no-match'}">
+                        ${isMatch ? '✅ 匹配' : '❌ 不匹配'}
+                    </div>
+                `;
+
+                resultsDiv.appendChild(resultDiv);
+
+                console.log(`测试 ${index + 1}:`);
+                console.log(`  原文: "${testCase.text}"`);
+                console.log(`  修正后: "${corrected}"`);
+                console.log(`  期望: "${testCase.expected}"`);
+                console.log(`  结果: ${isMatch ? '✅ 通过' : '❌ 失败'}`);
+                console.log('---');
+            });
+
+            console.log('✅ 测试完成！');
+        }
+
+        // 页面加载完成后自动运行测试
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎵 快速发音修正测试页面已加载');
+            runTests();
+        });
+    </script>
+</body>
+</html>

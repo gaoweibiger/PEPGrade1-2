@@ -1,4 +1,6 @@
-// 语音播放工具类 - 针对微信浏览器优化
+import { PronunciationCorrector } from './pronunciationCorrector';
+
+// 语音播放工具类 - 高性能优化版本
 export class SpeechUtils {
   private static isWeChat = /MicroMessenger/i.test(navigator.userAgent);
   private static isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -6,7 +8,17 @@ export class SpeechUtils {
   private static userInteracted = false;
   private static weChatAudioContext: AudioContext | null = null;
 
-  // 初始化用户交互监听
+  // 性能优化相关
+  private static isEngineWarmedUp = false;
+  private static voicesCache: SpeechSynthesisVoice[] = [];
+  private static voicesLoaded = false;
+  private static preferredVoice: SpeechSynthesisVoice | null = null;
+  private static warmupPromise: Promise<void> | null = null;
+
+  // 读音修正相关
+  private static pronunciationCorrectionEnabled = true;
+
+  // 初始化用户交互监听 - 性能优化版本
   static initUserInteraction() {
     if (!this.userInteracted) {
       const events = ['touchstart', 'click', 'keydown', 'touchend'];
@@ -18,17 +30,194 @@ export class SpeechUtils {
           this.initWeChatAudio();
         }
 
+        // 立即开始预热语音引擎
+        this.warmupSpeechEngine();
+
         events.forEach(event => {
           document.removeEventListener(event, handleInteraction);
         });
 
-        console.log('用户交互已激活，语音功能可用');
+        console.log('✅ 用户交互已激活，语音功能可用，开始预热引擎...');
+
+        // 触发自定义事件通知其他组件
+        window.dispatchEvent(new CustomEvent('userInteractionActivated', {
+          detail: { timestamp: Date.now() }
+        }));
       };
 
       events.forEach(event => {
         document.addEventListener(event, handleInteraction, { once: true });
       });
+
+      console.log('🎯 用户交互监听器已设置，等待用户交互...');
+    } else {
+      console.log('✅ 用户交互已经激活');
     }
+  }
+
+  // 预热语音引擎 - 关键性能优化
+  static async warmupSpeechEngine(): Promise<void> {
+    if (this.warmupPromise) {
+      return this.warmupPromise;
+    }
+
+    this.warmupPromise = this.performWarmup();
+    return this.warmupPromise;
+  }
+
+  private static async performWarmup(): Promise<void> {
+    if (this.isEngineWarmedUp || !this.isSpeechSupported()) {
+      return;
+    }
+
+    try {
+      console.log('🔥 开始预热语音引擎...');
+      const startTime = performance.now();
+
+      // 1. 预加载语音列表
+      await this.loadVoices();
+
+      // 2. 创建一个静音的测试语音来初始化引擎
+      const testUtterance = new SpeechSynthesisUtterance(' ');
+      testUtterance.volume = 0; // 静音
+      testUtterance.rate = this.isWeChat ? 0.7 : 0.8;
+      testUtterance.lang = 'en-US';
+
+      if (this.preferredVoice) {
+        testUtterance.voice = this.preferredVoice;
+      }
+
+      // 使用 Promise 来等待预热完成
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(); // 即使超时也继续
+        }, 500); // 最多等待500ms
+
+        testUtterance.onstart = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+
+        testUtterance.onend = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+
+        testUtterance.onerror = () => {
+          clearTimeout(timeout);
+          resolve(); // 即使出错也继续
+        };
+
+        speechSynthesis.speak(testUtterance);
+      });
+
+      this.isEngineWarmedUp = true;
+      const endTime = performance.now();
+      console.log(`✅ 语音引擎预热完成，耗时: ${Math.round(endTime - startTime)}ms`);
+
+    } catch (error) {
+      console.warn('语音引擎预热失败:', error);
+      // 即使预热失败，也标记为已尝试，避免重复预热
+      this.isEngineWarmedUp = true;
+    }
+  }
+
+  // 异步加载语音列表
+  private static async loadVoices(): Promise<void> {
+    if (this.voicesLoaded) {
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      const loadVoicesWithTimeout = () => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          this.voicesCache = voices;
+          this.preferredVoice = this.findBestVoice(voices);
+          this.voicesLoaded = true;
+          console.log(`📢 加载了 ${voices.length} 个语音，首选: ${this.preferredVoice?.name || '默认'}`);
+          resolve();
+        } else {
+          // 如果语音列表为空，等待一下再试
+          setTimeout(() => {
+            const retryVoices = speechSynthesis.getVoices();
+            this.voicesCache = retryVoices;
+            this.preferredVoice = this.findBestVoice(retryVoices);
+            this.voicesLoaded = true;
+            resolve();
+          }, 100);
+        }
+      };
+
+      // 监听语音列表变化事件
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = loadVoicesWithTimeout;
+      }
+
+      // 立即尝试加载
+      loadVoicesWithTimeout();
+
+      // 设置超时，避免无限等待
+      setTimeout(() => {
+        if (!this.voicesLoaded) {
+          this.voicesCache = speechSynthesis.getVoices();
+          this.preferredVoice = this.findBestVoice(this.voicesCache);
+          this.voicesLoaded = true;
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+
+  // 找到最佳语音
+  private static findBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+    if (voices.length === 0) return null;
+
+    // 优先级：本地英语语音 > 在线英语语音 > 其他语音
+    const englishVoices = voices.filter(voice => voice.lang.startsWith('en-'));
+
+    if (englishVoices.length > 0) {
+      // 优先选择本地语音
+      const localEnglishVoices = englishVoices.filter(voice => voice.localService);
+      if (localEnglishVoices.length > 0) {
+        // 优先选择美式英语
+        const usVoice = localEnglishVoices.find(voice => voice.lang === 'en-US');
+        return usVoice || localEnglishVoices[0];
+      }
+
+      // 如果没有本地语音，选择在线语音
+      const usVoice = englishVoices.find(voice => voice.lang === 'en-US');
+      return usVoice || englishVoices[0];
+    }
+
+    return voices[0];
+  }
+
+  // 手动激活用户交互（用于调试和测试）
+  static activateUserInteraction() {
+    if (!this.userInteracted) {
+      this.userInteracted = true;
+
+      // 微信浏览器特殊处理：初始化 AudioContext
+      if (this.isWeChat) {
+        this.initWeChatAudio();
+      }
+
+      // 立即开始预热语音引擎
+      this.warmupSpeechEngine();
+
+      console.log('🔧 用户交互已手动激活（调试模式）');
+
+      // 触发自定义事件通知其他组件
+      window.dispatchEvent(new CustomEvent('userInteractionActivated', {
+        detail: { timestamp: Date.now(), manual: true }
+      }));
+
+      return true;
+    }
+
+    console.log('✅ 用户交互已经激活');
+    return false;
   }
 
   // 初始化微信音频上下文
@@ -42,14 +231,52 @@ export class SpeechUtils {
       if (this.weChatAudioContext.state === 'suspended') {
         this.weChatAudioContext.resume();
       }
+
+      console.log('✅ 微信音频上下文已初始化');
     } catch (error) {
-      console.warn('微信音频上下文初始化失败:', error);
+      console.warn('❌ 微信音频上下文初始化失败:', error);
     }
   }
 
-  // 检查语音支持
+  // 检查语音支持 - 增强版本
   static isSpeechSupported(): boolean {
-    return 'speechSynthesis' in window;
+    // 基础检查
+    if (!('speechSynthesis' in window)) {
+      return false;
+    }
+
+    // 微信浏览器特殊检查
+    if (this.isWeChat) {
+      // 检查微信版本是否支持语音合成
+      const userAgent = navigator.userAgent;
+      const wechatVersionMatch = userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+
+      if (wechatVersionMatch) {
+        const majorVersion = parseInt(wechatVersionMatch[1]);
+        const minorVersion = parseInt(wechatVersionMatch[2]);
+
+        // 微信 7.0.0 以上版本才较好支持语音合成
+        if (majorVersion < 7) {
+          console.warn('微信版本过低，语音合成功能可能不稳定');
+          return false;
+        }
+
+        // 检查是否在微信小程序环境中
+        if (window.__wxjs_environment === 'miniprogram') {
+          console.warn('微信小程序环境不支持 Web Speech API');
+          return false;
+        }
+      }
+    }
+
+    // 尝试创建 SpeechSynthesisUtterance 实例来验证
+    try {
+      const testUtterance = new SpeechSynthesisUtterance('test');
+      return true;
+    } catch (error) {
+      console.warn('语音合成 API 不可用:', error);
+      return false;
+    }
   }
 
   // 检测是否为移动设备
@@ -62,8 +289,11 @@ export class SpeechUtils {
     return !this.isMobileDevice();
   }
 
-  // 获取环境信息
+  // 获取环境信息 - 增强版本
   static getEnvironmentInfo() {
+    const speechSupported = this.isSpeechSupported();
+    const wechatInfo = this.getWeChatInfo();
+
     return {
       isWeChat: this.isWeChat,
       isIOS: this.isIOS,
@@ -71,191 +301,300 @@ export class SpeechUtils {
       isMobile: this.isMobileDevice(),
       isDesktop: this.isDesktopDevice(),
       userInteracted: this.userInteracted,
-      speechSupported: this.isSpeechSupported()
+      speechSupported,
+      wechatVersion: wechatInfo.version,
+      wechatVersionSupported: wechatInfo.supported,
+      isWechatMiniProgram: wechatInfo.isMiniProgram,
+      supportLevel: this.getSupportLevel()
     };
   }
 
-  // 优化的语音播放函数
-  static speakText(text: string, options?: {
+  // 获取微信相关信息
+  static getWeChatInfo() {
+    if (!this.isWeChat) {
+      return { version: null, supported: false, isMiniProgram: false };
+    }
+
+    const userAgent = navigator.userAgent;
+    const wechatVersionMatch = userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+    const isMiniProgram = window.__wxjs_environment === 'miniprogram';
+
+    if (wechatVersionMatch) {
+      const version = `${wechatVersionMatch[1]}.${wechatVersionMatch[2]}.${wechatVersionMatch[3]}`;
+      const majorVersion = parseInt(wechatVersionMatch[1]);
+      const supported = majorVersion >= 7 && !isMiniProgram;
+
+      return { version, supported, isMiniProgram };
+    }
+
+    return { version: 'unknown', supported: false, isMiniProgram };
+  }
+
+  // 获取支持级别
+  static getSupportLevel(): 'full' | 'limited' | 'none' {
+    if (!this.isSpeechSupported()) {
+      return 'none';
+    }
+
+    if (this.isWeChat) {
+      const wechatInfo = this.getWeChatInfo();
+      if (!wechatInfo.supported) {
+        return 'none';
+      }
+      return 'limited'; // 微信浏览器支持有限
+    }
+
+    return 'full'; // 标准浏览器完全支持
+  }
+
+  // 高性能语音播放函数 - 零延迟优化 + 读音修正
+  static async speakText(text: string, options?: {
     lang?: string;
     rate?: number;
     pitch?: number;
     volume?: number;
+    enablePronunciationCorrection?: boolean;
+    showCorrectionInfo?: boolean;
   }): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (!this.isSpeechSupported()) {
-        console.warn('当前浏览器不支持语音合成');
-        resolve(false);
-        return;
-      }
+    const {
+      enablePronunciationCorrection = this.pronunciationCorrectionEnabled,
+      showCorrectionInfo = false,
+      ...speechOptions
+    } = options || {};
 
-      // 微信浏览器需要用户交互
-      if (this.isWeChat && !this.userInteracted) {
-        console.warn('微信浏览器需要用户先与页面交互才能播放语音');
-        resolve(false);
-        return;
-      }
+    console.log(`🎵 开始播放语音: "${text}"`);
 
-      try {
-        // 先停止当前播放
-        speechSynthesis.cancel();
+    // 读音修正处理
+    let processedText = text;
+    if (enablePronunciationCorrection && text) {
+      const originalText = text;
+      processedText = PronunciationCorrector.quickCorrect(text);
 
-        // 微信浏览器特殊处理
-        if (this.isWeChat) {
-          this.speakInWeChat(text, options, resolve);
-        } else {
-          this.speakNormal(text, options, resolve);
+      if (processedText !== originalText) {
+        console.log(`📝 读音修正: "${originalText}" → "${processedText}"`);
+
+        if (showCorrectionInfo) {
+          // 显示修正信息给用户
+          const corrections = PronunciationCorrector.previewCorrections(originalText);
+          if (corrections.length > 0) {
+            console.log('🔧 应用的读音修正:', corrections);
+
+            // 触发自定义事件通知UI组件
+            window.dispatchEvent(new CustomEvent('pronunciationCorrected', {
+              detail: {
+                original: originalText,
+                corrected: processedText,
+                corrections: corrections
+              }
+            }));
+          }
         }
+      }
+    }
 
+    const supportLevel = this.getSupportLevel();
+    const envInfo = this.getEnvironmentInfo();
+
+    console.log('环境信息:', {
+      supportLevel,
+      isWeChat: this.isWeChat,
+      userInteracted: this.userInteracted,
+      speechSupported: this.isSpeechSupported(),
+      isEngineWarmedUp: this.isEngineWarmedUp,
+      pronunciationCorrectionEnabled: enablePronunciationCorrection
+    });
+
+    if (supportLevel === 'none') {
+      console.warn('当前环境不支持语音合成');
+      this.showUnsupportedMessage();
+      return false;
+    }
+
+    // 微信浏览器需要用户交互
+    if (this.isWeChat && !this.userInteracted) {
+      console.warn('微信浏览器需要用户先与页面交互才能播放语音');
+      this.showInteractionRequiredMessage();
+      return false;
+    }
+
+    try {
+      // 确保引擎已预热（非阻塞）
+      if (!this.isEngineWarmedUp && this.userInteracted) {
+        console.log('🔥 开始后台预热语音引擎...');
+        this.warmupSpeechEngine(); // 不等待，让预热在后台进行
+      }
+
+      // 使用修正后的文本进行播放
+      const result = await this.performFastSpeak(processedText, speechOptions);
+      console.log(`🎵 语音播放结果: ${result ? '成功' : '失败'}`);
+      return result;
+
+    } catch (error) {
+      console.error('语音播放异常:', error);
+      return false;
+    }
+  }
+
+  // 快速播放实现 - 最小延迟
+  private static async performFastSpeak(text: string, options?: {
+    lang?: string;
+    rate?: number;
+    pitch?: number;
+    volume?: number;
+    retryCount?: number;
+  }): Promise<boolean> {
+    const retryCount = options?.retryCount || 0;
+    const maxRetries = 1; // 最多重试1次
+
+    return new Promise((resolve) => {
+      // 立即停止当前播放，无延迟
+      speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      // 使用缓存的最佳语音
+      if (this.preferredVoice) {
+        utterance.voice = this.preferredVoice;
+      }
+
+      // 优化的参数设置
+      utterance.lang = options?.lang || 'en-US';
+      utterance.rate = options?.rate || (this.isWeChat ? 0.8 : 0.9); // 提高默认速度
+      utterance.pitch = options?.pitch || 1;
+      utterance.volume = options?.volume || 1;
+
+      let hasStarted = false;
+      let hasEnded = false;
+
+      // 快速超时机制 - 减少等待时间
+      const timeout = setTimeout(() => {
+        if (!hasStarted && !hasEnded) {
+          console.warn('语音播放启动超时');
+          hasEnded = true;
+          resolve(false);
+        }
+      }, 2000); // 增加到2秒超时，给语音引擎更多时间
+
+      utterance.onstart = () => {
+        hasStarted = true;
+        clearTimeout(timeout);
+        console.log('🎵 语音播放开始');
+      };
+
+      utterance.onend = () => {
+        if (!hasEnded) {
+          hasEnded = true;
+          clearTimeout(timeout);
+          console.log('✅ 语音播放完成');
+          resolve(true);
+        }
+      };
+
+      utterance.onerror = (event) => {
+        if (!hasEnded) {
+          hasEnded = true;
+          clearTimeout(timeout);
+          console.error('❌ 语音播放错误:', event.error);
+
+          // 对于 synthesis-failed 错误，尝试重试（但有次数限制）
+          if (event.error === 'synthesis-failed' && retryCount < maxRetries) {
+            console.log(`检测到 synthesis-failed，尝试重试 (${retryCount + 1}/${maxRetries})...`);
+
+            // 递归调用自己进行重试，但增加重试计数
+            setTimeout(async () => {
+              try {
+                const retryResult = await this.performFastSpeak(text, {
+                  ...options,
+                  retryCount: retryCount + 1,
+                  rate: (options?.rate || (this.isWeChat ? 0.8 : 0.9)) * 0.9, // 稍微降低速度
+                  volume: (options?.volume || 1) * 0.9 // 稍微降低音量
+                });
+                resolve(retryResult);
+              } catch (retryError) {
+                console.error('重试过程中发生异常:', retryError);
+                resolve(false);
+              }
+            }, 200);
+          } else {
+            if (retryCount >= maxRetries) {
+              console.error(`❌ 已达到最大重试次数 (${maxRetries})，放弃播放`);
+            }
+            resolve(false);
+          }
+        }
+      };
+
+      // 立即播放，无延迟
+      try {
+        speechSynthesis.speak(utterance);
       } catch (error) {
-        console.error('语音播放异常:', error);
+        clearTimeout(timeout);
+        console.error('语音播放启动失败:', error);
         resolve(false);
       }
     });
   }
 
-  // 微信浏览器语音播放
-  private static speakInWeChat(text: string, options: any, resolve: (value: boolean) => void) {
-    // 确保语音合成器处于干净状态
-    speechSynthesis.cancel();
+  // 显示不支持的消息
+  static showUnsupportedMessage() {
+    const envInfo = this.getEnvironmentInfo();
+    let message = '抱歉，您的浏览器不支持语音合成功能。\n\n';
 
-    // 等待一小段时间确保取消完成
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      // 微信浏览器优化设置
-      utterance.lang = options?.lang || 'en-US';
-      utterance.rate = Math.max(0.5, Math.min(1.0, options?.rate || 0.7)); // 限制速度范围
-      utterance.pitch = Math.max(0.5, Math.min(2.0, options?.pitch || 1)); // 限制音调范围
-      utterance.volume = Math.max(0.1, Math.min(1.0, options?.volume || 1)); // 限制音量范围
-
-      let hasStarted = false;
-      let hasEnded = false;
-      let timeoutId: NodeJS.Timeout;
-
-      utterance.onstart = () => {
-        hasStarted = true;
-        console.log('微信语音播放开始');
-        if (timeoutId) clearTimeout(timeoutId);
-      };
-
-      utterance.onend = () => {
-        if (!hasEnded) {
-          hasEnded = true;
-          console.log('微信语音播放结束');
-          if (timeoutId) clearTimeout(timeoutId);
-          resolve(true);
-        }
-      };
-
-      utterance.onerror = (event) => {
-        if (!hasEnded) {
-          hasEnded = true;
-          console.error('微信语音播放错误:', event.error);
-          if (timeoutId) clearTimeout(timeoutId);
-
-          // 对于 synthesis-failed 错误，尝试重新播放
-          if (event.error === 'synthesis-failed') {
-            console.log('检测到 synthesis-failed，尝试重新播放...');
-            setTimeout(() => {
-              speechSynthesis.cancel();
-              setTimeout(() => {
-                speechSynthesis.speak(utterance);
-              }, 100);
-            }, 500);
-          } else {
-            resolve(false);
-          }
-        }
-      };
-
-      // 微信浏览器多重保障
-      try {
-        speechSynthesis.speak(utterance);
-
-        // 设置超时检测
-        timeoutId = setTimeout(() => {
-          if (!hasStarted && !hasEnded) {
-            console.warn('微信语音播放超时，尝试重新播放');
-            speechSynthesis.cancel();
-            setTimeout(() => {
-              speechSynthesis.speak(utterance);
-            }, 100);
-          }
-        }, 2000); // 增加超时时间到2秒
-
-      } catch (error) {
-        console.error('微信语音播放异常:', error);
-        resolve(false);
+    if (envInfo.isWeChat) {
+      if (envInfo.isWechatMiniProgram) {
+        message += '检测到您在微信小程序中访问，小程序环境不支持网页语音功能。\n\n建议：\n• 在微信中直接打开链接\n• 或复制链接到其他浏览器打开';
+      } else if (!envInfo.wechatVersionSupported) {
+        message += `检测到微信版本：${envInfo.wechatVersion || '未知'}\n\n建议：\n• 更新微信到最新版本\n• 或复制链接到其他浏览器打开`;
+      } else {
+        message += '微信浏览器的语音功能可能受限。\n\n建议：\n• 确保微信已更新到最新版本\n• 或复制链接到 Safari/Chrome 等浏览器打开';
       }
-    }, 100); // 等待100ms确保之前的播放已取消
+    } else {
+      message += '建议使用以下浏览器：\n• Chrome (推荐)\n• Safari\n• Edge\n• Firefox';
+    }
+
+    // 在控制台输出详细信息
+    console.warn('语音功能不支持详情:', envInfo);
+
+    // 可以通过自定义事件通知UI组件
+    window.dispatchEvent(new CustomEvent('speechUnsupported', {
+      detail: { message, envInfo }
+    }));
   }
 
-  // 普通浏览器语音播放
-  private static speakNormal(text: string, options: any, resolve: (value: boolean) => void) {
-    // 确保语音合成器处于干净状态
-    speechSynthesis.cancel();
+  // 显示需要交互的消息
+  static showInteractionRequiredMessage() {
+    const message = '请先点击页面任意位置激活语音功能！\n\n这是微信浏览器的安全限制，需要用户交互后才能播放语音。';
 
-    // 等待一小段时间确保取消完成
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
+    window.dispatchEvent(new CustomEvent('speechInteractionRequired', {
+      detail: { message }
+    }));
+  }
 
-      // 参数验证和限制
-      utterance.lang = options?.lang || 'en-US';
-      utterance.rate = Math.max(0.5, Math.min(2.0, options?.rate || 0.8));
-      utterance.pitch = Math.max(0.5, Math.min(2.0, options?.pitch || 1));
-      utterance.volume = Math.max(0.1, Math.min(1.0, options?.volume || 1));
+  // 获取可用语音列表 - 使用缓存
+  static getVoices(): SpeechSynthesisVoice[] {
+    if (this.voicesLoaded && this.voicesCache.length > 0) {
+      return this.voicesCache;
+    }
 
-      let hasEnded = false;
+    // 如果缓存为空，尝试重新加载
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      this.voicesCache = voices;
+      this.voicesLoaded = true;
+    }
 
-      utterance.onstart = () => {
-        console.log('语音播放开始');
-      };
+    return voices;
+  }
 
-      utterance.onend = () => {
-        if (!hasEnded) {
-          hasEnded = true;
-          console.log('语音播放结束');
-          resolve(true);
-        }
-      };
+  // 获取推荐的英语语音 - 使用缓存
+  static getRecommendedEnglishVoice(): SpeechSynthesisVoice | null {
+    if (this.preferredVoice) {
+      return this.preferredVoice;
+    }
 
-      utterance.onerror = (event) => {
-        if (!hasEnded) {
-          hasEnded = true;
-          console.error('语音播放错误:', event.error);
-
-          // 对于 synthesis-failed 错误，尝试重新播放
-          if (event.error === 'synthesis-failed') {
-            console.log('检测到 synthesis-failed，尝试重新播放...');
-            setTimeout(() => {
-              speechSynthesis.cancel();
-              setTimeout(() => {
-                const retryUtterance = new SpeechSynthesisUtterance(text);
-                retryUtterance.lang = utterance.lang;
-                retryUtterance.rate = utterance.rate;
-                retryUtterance.pitch = utterance.pitch;
-                retryUtterance.volume = utterance.volume;
-
-                retryUtterance.onend = () => resolve(true);
-                retryUtterance.onerror = () => resolve(false);
-
-                speechSynthesis.speak(retryUtterance);
-              }, 100);
-            }, 300);
-          } else {
-            resolve(false);
-          }
-        }
-      };
-
-      try {
-        speechSynthesis.speak(utterance);
-      } catch (error) {
-        console.error('语音播放异常:', error);
-        resolve(false);
-      }
-    }, 50); // 等待50ms确保之前的播放已取消
+    const voices = this.getVoices();
+    this.preferredVoice = this.findBestVoice(voices);
+    return this.preferredVoice;
   }
 
   // 停止语音播放
@@ -301,15 +640,9 @@ export class SpeechUtils {
     }
   }
 
-  // 获取可用语音列表
-  static getVoices(): SpeechSynthesisVoice[] {
-    if (this.isSpeechSupported()) {
-      return speechSynthesis.getVoices();
-    }
-    return [];
-  }
 
-  // 批量播放文本列表
+
+  // 高性能批量播放文本列表
   static async speakTextList(textList: string[], options?: {
     lang?: string;
     rate?: number;
@@ -318,11 +651,16 @@ export class SpeechUtils {
     interval?: number; // 播放间隔（毫秒）
   }): Promise<boolean[]> {
     const results: boolean[] = [];
-    const interval = options?.interval || 1000;
+    const interval = options?.interval || 500; // 减少默认间隔
+
+    // 确保引擎已预热
+    if (!this.isEngineWarmedUp && this.userInteracted) {
+      await this.warmupSpeechEngine();
+    }
 
     for (let i = 0; i < textList.length; i++) {
       const text = textList[i];
-      console.log(`播放第 ${i + 1}/${textList.length} 个: ${text}`);
+      console.log(`🎵 播放第 ${i + 1}/${textList.length} 个: ${text}`);
 
       const success = await this.speakText(text, options);
       results.push(success);
@@ -333,26 +671,11 @@ export class SpeechUtils {
       }
     }
 
+    console.log(`📊 批量播放完成，成功率: ${results.filter(r => r).length}/${results.length}`);
     return results;
   }
 
-  // 获取推荐的英语语音
-  static getRecommendedEnglishVoice(): SpeechSynthesisVoice | null {
-    const voices = this.getVoices();
 
-    // 优先选择英语语音
-    const englishVoices = voices.filter(voice =>
-      voice.lang.startsWith('en-') && !voice.name.includes('Google')
-    );
-
-    if (englishVoices.length > 0) {
-      // 优先选择美式英语
-      const usVoice = englishVoices.find(voice => voice.lang === 'en-US');
-      return usVoice || englishVoices[0];
-    }
-
-    return voices.length > 0 ? voices[0] : null;
-  }
 
   // 智能语音测试 - 更准确的测试结果
   static async testSpeech(text: string = 'Hello, this is a test!'): Promise<{
@@ -489,8 +812,106 @@ export class SpeechUtils {
       isSupported: this.isSpeechSupported(),
       environment: this.getEnvironmentInfo(),
       availableVoices: this.getVoices().length,
-      recommendedVoice: this.getRecommendedEnglishVoice()?.name || 'None'
+      recommendedVoice: this.getRecommendedEnglishVoice()?.name || 'None',
+      isEngineWarmedUp: this.isEngineWarmedUp,
+      voicesLoaded: this.voicesLoaded,
+      pronunciationCorrectionEnabled: this.pronunciationCorrectionEnabled
     };
+  }
+
+  // 读音修正相关方法
+
+  /**
+   * 启用/禁用读音修正功能
+   */
+  static setPronunciationCorrectionEnabled(enabled: boolean): void {
+    this.pronunciationCorrectionEnabled = enabled;
+    console.log(`📝 读音修正功能已${enabled ? '启用' : '禁用'}`);
+  }
+
+  /**
+   * 获取读音修正状态
+   */
+  static isPronunciationCorrectionEnabled(): boolean {
+    return this.pronunciationCorrectionEnabled;
+  }
+
+  /**
+   * 预览文本的读音修正效果
+   */
+  static previewPronunciationCorrection(text: string): {
+    original: string;
+    corrected: string;
+    corrections: Array<{
+      position: number;
+      original: string;
+      corrected: string;
+      type: string;
+    }>;
+    needsCorrection: boolean;
+  } {
+    const corrected = PronunciationCorrector.quickCorrect(text);
+    const corrections = PronunciationCorrector.previewCorrections(text);
+    const needsCorrection = PronunciationCorrector.needsCorrection(text);
+
+    return {
+      original: text,
+      corrected,
+      corrections,
+      needsCorrection
+    };
+  }
+
+  /**
+   * 添加自定义读音修正规则
+   */
+  static addCustomPronunciationRule(original: string, corrected: string): void {
+    PronunciationCorrector.addCustomAbbreviation(original, corrected);
+    console.log(`📝 添加自定义读音规则: "${original}" → "${corrected}"`);
+  }
+
+  /**
+   * 获取所有支持的缩写词
+   */
+  static getSupportedAbbreviations(): Array<{abbreviation: string, expansion: string}> {
+    return PronunciationCorrector.getSupportedAbbreviations();
+  }
+
+  /**
+   * 批量播放文本列表 - 支持读音修正
+   */
+  static async speakTextListWithCorrection(textList: string[], options?: {
+    lang?: string;
+    rate?: number;
+    pitch?: number;
+    volume?: number;
+    interval?: number;
+    enablePronunciationCorrection?: boolean;
+    showCorrectionInfo?: boolean;
+  }): Promise<boolean[]> {
+    const results: boolean[] = [];
+    const interval = options?.interval || 500;
+
+    // 确保引擎已预热
+    if (!this.isEngineWarmedUp && this.userInteracted) {
+      await this.warmupSpeechEngine();
+    }
+
+    for (let i = 0; i < textList.length; i++) {
+      const text = textList[i];
+      console.log(`🎵 播放第 ${i + 1}/${textList.length} 个: ${text}`);
+
+      const success = await this.speakText(text, options);
+      results.push(success);
+
+      // 如果不是最后一个，等待间隔时间
+      if (i < textList.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+      }
+    }
+
+    console.log(`📊 批量播放完成，成功率: ${results.filter(r => r).length}/${results.length}`);
+    return results;
   }
 }
 
@@ -503,3 +924,11 @@ export const speakText = (text: string, options?: {
 }) => SpeechUtils.speakText(text, options);
 
 export const initSpeech = () => SpeechUtils.initUserInteraction();
+
+export const activateUserInteraction = () => SpeechUtils.activateUserInteraction();
+
+// 在全局对象上暴露调试函数
+if (typeof window !== 'undefined') {
+  (window as any).SpeechUtils = SpeechUtils;
+  (window as any).activateUserInteraction = activateUserInteraction;
+}

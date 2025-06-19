@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音性能测试 - 优化效果验证</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-button {
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .test-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .result.success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+        }
+        .result.warning {
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid #fbbf24;
+            color: #fbbf24;
+        }
+        .result.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 语音性能测试</h1>
+            <p>验证语音播放优化效果</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔥 引擎预热测试</h3>
+            <p>测试语音引擎预热时间和效果</p>
+            <button class="test-button" onclick="testWarmup()" id="warmup-btn">
+                开始预热测试
+            </button>
+            <div id="warmup-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ 播放响应时间测试</h3>
+            <p>测试从点击到开始播放的延迟时间</p>
+            <button class="test-button" onclick="testResponseTime()" id="response-btn">
+                测试响应时间
+            </button>
+            <div id="response-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 批量播放性能测试</h3>
+            <p>测试连续播放多个语音的性能</p>
+            <button class="test-button" onclick="testBatchPerformance()" id="batch-btn">
+                批量播放测试
+            </button>
+            <div class="progress-bar">
+                <div class="progress-fill" id="batch-progress"></div>
+            </div>
+            <div id="batch-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 综合性能评分</h3>
+            <div class="stats" id="performance-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="warmup-score">-</div>
+                    <div class="stat-label">预热得分</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="response-score">-</div>
+                    <div class="stat-label">响应得分</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="batch-score">-</div>
+                    <div class="stat-label">批量得分</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="overall-score">-</div>
+                    <div class="stat-label">综合得分</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {
+            warmup: null,
+            response: null,
+            batch: null
+        };
+
+        // 检查语音支持
+        const speechSupported = 'speechSynthesis' in window;
+        const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+        let userInteracted = false;
+
+        // 用户交互监听
+        document.addEventListener('click', () => {
+            if (!userInteracted) {
+                userInteracted = true;
+                console.log('用户交互已激活');
+            }
+        }, { once: true });
+
+        // 预热测试
+        async function testWarmup() {
+            const btn = document.getElementById('warmup-btn');
+            const result = document.getElementById('warmup-result');
+            
+            btn.disabled = true;
+            btn.textContent = '预热中...';
+            result.innerHTML = '';
+
+            if (!speechSupported) {
+                showResult('warmup-result', 'error', '浏览器不支持语音合成');
+                btn.disabled = false;
+                btn.textContent = '开始预热测试';
+                return;
+            }
+
+            if (isWeChat && !userInteracted) {
+                showResult('warmup-result', 'warning', '请先点击页面激活用户交互');
+                btn.disabled = false;
+                btn.textContent = '开始预热测试';
+                return;
+            }
+
+            try {
+                const startTime = performance.now();
+
+                // 模拟预热过程
+                await loadVoices();
+                await warmupEngine();
+
+                const endTime = performance.now();
+                const warmupTime = Math.round(endTime - startTime);
+
+                testResults.warmup = warmupTime;
+                
+                let score, message;
+                if (warmupTime < 200) {
+                    score = 100;
+                    message = `预热完成！耗时 ${warmupTime}ms - 优秀`;
+                } else if (warmupTime < 500) {
+                    score = 80;
+                    message = `预热完成！耗时 ${warmupTime}ms - 良好`;
+                } else if (warmupTime < 1000) {
+                    score = 60;
+                    message = `预热完成！耗时 ${warmupTime}ms - 一般`;
+                } else {
+                    score = 40;
+                    message = `预热完成！耗时 ${warmupTime}ms - 较慢`;
+                }
+
+                document.getElementById('warmup-score').textContent = score;
+                showResult('warmup-result', 'success', message);
+
+            } catch (error) {
+                testResults.warmup = -1;
+                document.getElementById('warmup-score').textContent = '0';
+                showResult('warmup-result', 'error', `预热失败: ${error.message}`);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '重新测试';
+            updateOverallScore();
+        }
+
+        // 响应时间测试
+        async function testResponseTime() {
+            const btn = document.getElementById('response-btn');
+            const result = document.getElementById('response-result');
+            
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+            result.innerHTML = '';
+
+            if (!speechSupported) {
+                showResult('response-result', 'error', '浏览器不支持语音合成');
+                btn.disabled = false;
+                btn.textContent = '测试响应时间';
+                return;
+            }
+
+            try {
+                const startTime = performance.now();
+                
+                const utterance = new SpeechSynthesisUtterance('Performance test');
+                utterance.volume = 0.1; // 低音量测试
+                utterance.rate = 1.5; // 快速播放
+                
+                let responseTime = -1;
+
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('响应超时'));
+                    }, 3000);
+
+                    utterance.onstart = () => {
+                        const endTime = performance.now();
+                        responseTime = Math.round(endTime - startTime);
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+
+                    utterance.onerror = (event) => {
+                        clearTimeout(timeout);
+                        reject(new Error(`播放错误: ${event.error}`));
+                    };
+
+                    speechSynthesis.cancel();
+                    speechSynthesis.speak(utterance);
+                });
+
+                testResults.response = responseTime;
+
+                let score, message;
+                if (responseTime < 100) {
+                    score = 100;
+                    message = `响应时间 ${responseTime}ms - 极快`;
+                } else if (responseTime < 300) {
+                    score = 90;
+                    message = `响应时间 ${responseTime}ms - 很快`;
+                } else if (responseTime < 500) {
+                    score = 80;
+                    message = `响应时间 ${responseTime}ms - 快`;
+                } else if (responseTime < 1000) {
+                    score = 60;
+                    message = `响应时间 ${responseTime}ms - 一般`;
+                } else {
+                    score = 30;
+                    message = `响应时间 ${responseTime}ms - 慢`;
+                }
+
+                document.getElementById('response-score').textContent = score;
+                showResult('response-result', 'success', message);
+
+            } catch (error) {
+                testResults.response = -1;
+                document.getElementById('response-score').textContent = '0';
+                showResult('response-result', 'error', `测试失败: ${error.message}`);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '重新测试';
+            updateOverallScore();
+        }
+
+        // 批量播放测试
+        async function testBatchPerformance() {
+            const btn = document.getElementById('batch-btn');
+            const result = document.getElementById('batch-result');
+            const progress = document.getElementById('batch-progress');
+            
+            btn.disabled = true;
+            btn.textContent = '批量测试中...';
+            result.innerHTML = '';
+            progress.style.width = '0%';
+
+            if (!speechSupported) {
+                showResult('batch-result', 'error', '浏览器不支持语音合成');
+                btn.disabled = false;
+                btn.textContent = '批量播放测试';
+                return;
+            }
+
+            try {
+                const testWords = ['Hello', 'World', 'Test', 'Performance', 'Speed'];
+                const startTime = performance.now();
+                let successCount = 0;
+
+                for (let i = 0; i < testWords.length; i++) {
+                    const word = testWords[i];
+                    progress.style.width = `${(i / testWords.length) * 100}%`;
+
+                    try {
+                        const utterance = new SpeechSynthesisUtterance(word);
+                        utterance.volume = 0.1;
+                        utterance.rate = 2.0; // 快速播放
+
+                        await new Promise((resolve, reject) => {
+                            const timeout = setTimeout(() => {
+                                reject(new Error('超时'));
+                            }, 2000);
+
+                            utterance.onend = () => {
+                                clearTimeout(timeout);
+                                successCount++;
+                                resolve();
+                            };
+
+                            utterance.onerror = () => {
+                                clearTimeout(timeout);
+                                resolve(); // 继续下一个
+                            };
+
+                            speechSynthesis.speak(utterance);
+                        });
+
+                        // 短暂间隔
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                    } catch (error) {
+                        console.warn(`播放 ${word} 失败:`, error);
+                    }
+                }
+
+                progress.style.width = '100%';
+                const endTime = performance.now();
+                const totalTime = Math.round(endTime - startTime);
+                const successRate = (successCount / testWords.length) * 100;
+
+                testResults.batch = { totalTime, successRate };
+
+                let score;
+                if (successRate === 100 && totalTime < 2000) {
+                    score = 100;
+                } else if (successRate >= 80 && totalTime < 3000) {
+                    score = 80;
+                } else if (successRate >= 60 && totalTime < 5000) {
+                    score = 60;
+                } else {
+                    score = 40;
+                }
+
+                document.getElementById('batch-score').textContent = score;
+                showResult('batch-result', 'success', 
+                    `批量播放完成！成功率: ${successRate.toFixed(1)}%, 总耗时: ${totalTime}ms`);
+
+            } catch (error) {
+                testResults.batch = { totalTime: -1, successRate: 0 };
+                document.getElementById('batch-score').textContent = '0';
+                showResult('batch-result', 'error', `批量测试失败: ${error.message}`);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '重新测试';
+            updateOverallScore();
+        }
+
+        // 辅助函数
+        function loadVoices() {
+            return new Promise((resolve) => {
+                const voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    resolve(voices);
+                } else {
+                    speechSynthesis.onvoiceschanged = () => {
+                        resolve(speechSynthesis.getVoices());
+                    };
+                    setTimeout(() => resolve(speechSynthesis.getVoices()), 1000);
+                }
+            });
+        }
+
+        function warmupEngine() {
+            return new Promise((resolve) => {
+                const utterance = new SpeechSynthesisUtterance(' ');
+                utterance.volume = 0;
+                
+                const timeout = setTimeout(resolve, 500);
+                
+                utterance.onstart = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                
+                utterance.onend = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                
+                utterance.onerror = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                
+                speechSynthesis.speak(utterance);
+            });
+        }
+
+        function showResult(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        function updateOverallScore() {
+            const scores = [
+                testResults.warmup ? (testResults.warmup < 500 ? 80 : 60) : 0,
+                testResults.response ? (testResults.response < 300 ? 90 : 70) : 0,
+                testResults.batch ? (testResults.batch.successRate > 80 ? 85 : 65) : 0
+            ];
+
+            const validScores = scores.filter(s => s > 0);
+            if (validScores.length > 0) {
+                const overall = Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length);
+                document.getElementById('overall-score').textContent = overall;
+            }
+        }
+
+        // 页面加载完成后显示环境信息
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('语音性能测试页面已加载');
+            console.log('浏览器支持:', speechSupported);
+            console.log('微信浏览器:', isWeChat);
+        });
+    </script>
+</body>
+</html>

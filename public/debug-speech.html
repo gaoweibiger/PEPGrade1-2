@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音功能调试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .test-button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .test-button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .status.success { background: #065f46; border: 1px solid #10b981; }
+        .status.error { background: #7f1d1d; border: 1px solid #ef4444; }
+        .status.warning { background: #78350f; border: 1px solid #f59e0b; }
+        .status.info { background: #1e3a8a; border: 1px solid #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 语音功能调试工具</h1>
+        
+        <div class="status info">
+            <strong>使用说明：</strong>
+            <ol>
+                <li>首先点击"激活用户交互"</li>
+                <li>然后测试各种语音功能</li>
+                <li>查看控制台日志了解详细信息</li>
+            </ol>
+        </div>
+
+        <div>
+            <h3>🎯 基础测试</h3>
+            <button class="test-button" onclick="activateInteraction()">激活用户交互</button>
+            <button class="test-button" onclick="testBasicSpeech()">基础语音测试</button>
+            <button class="test-button" onclick="testEnvironment()">环境检测</button>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+        </div>
+
+        <div>
+            <h3>🚀 性能测试</h3>
+            <button class="test-button" onclick="testWarmup()">预热测试</button>
+            <button class="test-button" onclick="testResponseTime()">响应时间测试</button>
+            <button class="test-button" onclick="testMultiple()">连续播放测试</button>
+        </div>
+
+        <div>
+            <h3>🛠️ 故障排除</h3>
+            <button class="test-button" onclick="testSynthesisFailed()">模拟 synthesis-failed</button>
+            <button class="test-button" onclick="resetEngine()">重置语音引擎</button>
+            <button class="test-button" onclick="showVoices()">显示可用语音</button>
+        </div>
+
+        <div id="status-display"></div>
+        <div class="log" id="log-output"></div>
+    </div>
+
+    <script>
+        // 简化的日志系统
+        const logOutput = document.getElementById('log-output');
+        const statusDisplay = document.getElementById('status-display');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            const div = document.createElement('div');
+            div.textContent = logEntry;
+            div.style.color = type === 'error' ? '#ef4444' : 
+                             type === 'success' ? '#10b981' : 
+                             type === 'warning' ? '#f59e0b' : '#94a3b8';
+            
+            logOutput.appendChild(div);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        function showStatus(message, type = 'info') {
+            statusDisplay.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearLog() {
+            logOutput.innerHTML = '';
+            statusDisplay.innerHTML = '';
+        }
+
+        // 检查基础支持
+        const speechSupported = 'speechSynthesis' in window;
+        const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+        let userInteracted = false;
+
+        log(`浏览器支持语音合成: ${speechSupported}`);
+        log(`微信浏览器: ${isWeChat}`);
+        log(`用户代理: ${navigator.userAgent}`);
+
+        // 激活用户交互
+        function activateInteraction() {
+            userInteracted = true;
+            log('用户交互已激活', 'success');
+            showStatus('✅ 用户交互已激活', 'success');
+            
+            // 尝试初始化音频上下文
+            if (isWeChat) {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                        log('音频上下文已恢复', 'success');
+                    }
+                } catch (error) {
+                    log(`音频上下文初始化失败: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // 基础语音测试
+        async function testBasicSpeech() {
+            if (!speechSupported) {
+                showStatus('❌ 浏览器不支持语音合成', 'error');
+                return;
+            }
+
+            if (isWeChat && !userInteracted) {
+                showStatus('⚠️ 请先激活用户交互', 'warning');
+                return;
+            }
+
+            log('开始基础语音测试...');
+            showStatus('🎵 正在测试语音播放...', 'info');
+
+            try {
+                const utterance = new SpeechSynthesisUtterance('Hello, this is a test!');
+                utterance.lang = 'en-US';
+                utterance.rate = isWeChat ? 0.7 : 0.8;
+                utterance.volume = 1;
+
+                let started = false;
+                let ended = false;
+
+                const timeout = setTimeout(() => {
+                    if (!started) {
+                        log('语音播放启动超时', 'error');
+                        showStatus('❌ 语音播放启动超时', 'error');
+                    }
+                }, 3000);
+
+                utterance.onstart = () => {
+                    started = true;
+                    clearTimeout(timeout);
+                    log('语音播放开始', 'success');
+                };
+
+                utterance.onend = () => {
+                    ended = true;
+                    log('语音播放完成', 'success');
+                    showStatus('✅ 语音播放成功', 'success');
+                };
+
+                utterance.onerror = (event) => {
+                    clearTimeout(timeout);
+                    log(`语音播放错误: ${event.error}`, 'error');
+                    showStatus(`❌ 语音播放错误: ${event.error}`, 'error');
+                };
+
+                speechSynthesis.cancel();
+                speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                log(`语音测试异常: ${error.message}`, 'error');
+                showStatus(`❌ 语音测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 环境检测
+        function testEnvironment() {
+            log('=== 环境检测开始 ===');
+            
+            // 基础信息
+            log(`浏览器: ${navigator.userAgent}`);
+            log(`语音合成支持: ${speechSupported}`);
+            log(`用户交互状态: ${userInteracted}`);
+            
+            if (speechSupported) {
+                // 语音列表
+                const voices = speechSynthesis.getVoices();
+                log(`可用语音数量: ${voices.length}`);
+                
+                if (voices.length > 0) {
+                    const englishVoices = voices.filter(v => v.lang.startsWith('en-'));
+                    log(`英语语音数量: ${englishVoices.length}`);
+                    
+                    if (englishVoices.length > 0) {
+                        log(`推荐语音: ${englishVoices[0].name} (${englishVoices[0].lang})`);
+                    }
+                } else {
+                    log('语音列表为空，可能需要等待加载', 'warning');
+                }
+                
+                // 语音合成器状态
+                log(`语音合成器状态: ${speechSynthesis.speaking ? '播放中' : '空闲'}`);
+                log(`语音合成器暂停: ${speechSynthesis.paused}`);
+                log(`语音合成器待播放: ${speechSynthesis.pending}`);
+            }
+            
+            // 微信特殊检测
+            if (isWeChat) {
+                const versionMatch = navigator.userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+                if (versionMatch) {
+                    const version = `${versionMatch[1]}.${versionMatch[2]}.${versionMatch[3]}`;
+                    log(`微信版本: ${version}`);
+                    
+                    const majorVersion = parseInt(versionMatch[1]);
+                    log(`版本支持状态: ${majorVersion >= 7 ? '支持' : '不支持'}`);
+                }
+                
+                log(`小程序环境: ${window.__wxjs_environment === 'miniprogram' ? '是' : '否'}`);
+            }
+            
+            log('=== 环境检测完成 ===');
+            showStatus('✅ 环境检测完成，请查看日志', 'success');
+        }
+
+        // 预热测试
+        async function testWarmup() {
+            log('开始预热测试...');
+            const startTime = performance.now();
+            
+            try {
+                // 模拟预热过程
+                const voices = speechSynthesis.getVoices();
+                log(`加载语音列表: ${voices.length} 个`);
+                
+                // 静音测试播放
+                const testUtterance = new SpeechSynthesisUtterance(' ');
+                testUtterance.volume = 0;
+                testUtterance.rate = 1;
+                
+                await new Promise((resolve) => {
+                    const timeout = setTimeout(resolve, 500);
+                    
+                    testUtterance.onstart = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                    
+                    testUtterance.onend = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                    
+                    testUtterance.onerror = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                    
+                    speechSynthesis.speak(testUtterance);
+                });
+                
+                const endTime = performance.now();
+                const warmupTime = Math.round(endTime - startTime);
+                
+                log(`预热完成，耗时: ${warmupTime}ms`, 'success');
+                showStatus(`✅ 预热完成，耗时: ${warmupTime}ms`, 'success');
+                
+            } catch (error) {
+                log(`预热失败: ${error.message}`, 'error');
+                showStatus(`❌ 预热失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 响应时间测试
+        async function testResponseTime() {
+            log('开始响应时间测试...');
+            
+            const startTime = performance.now();
+            
+            try {
+                const utterance = new SpeechSynthesisUtterance('Speed test');
+                utterance.volume = 0.1;
+                utterance.rate = 2.0;
+                
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('响应超时'));
+                    }, 3000);
+                    
+                    utterance.onstart = () => {
+                        const endTime = performance.now();
+                        const responseTime = Math.round(endTime - startTime);
+                        clearTimeout(timeout);
+                        log(`响应时间: ${responseTime}ms`, 'success');
+                        showStatus(`✅ 响应时间: ${responseTime}ms`, 'success');
+                        resolve();
+                    };
+                    
+                    utterance.onerror = (event) => {
+                        clearTimeout(timeout);
+                        reject(new Error(`播放错误: ${event.error}`));
+                    };
+                    
+                    speechSynthesis.cancel();
+                    speechSynthesis.speak(utterance);
+                });
+                
+            } catch (error) {
+                log(`响应时间测试失败: ${error.message}`, 'error');
+                showStatus(`❌ 响应时间测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 连续播放测试
+        async function testMultiple() {
+            log('开始连续播放测试...');
+            const words = ['One', 'Two', 'Three'];
+            let successCount = 0;
+            
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i];
+                log(`播放第 ${i + 1} 个: ${word}`);
+                
+                try {
+                    const utterance = new SpeechSynthesisUtterance(word);
+                    utterance.volume = 0.1;
+                    utterance.rate = 2.0;
+                    
+                    await new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error('超时'));
+                        }, 2000);
+                        
+                        utterance.onend = () => {
+                            clearTimeout(timeout);
+                            successCount++;
+                            resolve();
+                        };
+                        
+                        utterance.onerror = () => {
+                            clearTimeout(timeout);
+                            resolve(); // 继续下一个
+                        };
+                        
+                        speechSynthesis.speak(utterance);
+                    });
+                    
+                    // 短暂间隔
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                } catch (error) {
+                    log(`播放 ${word} 失败: ${error.message}`, 'warning');
+                }
+            }
+            
+            const successRate = (successCount / words.length) * 100;
+            log(`连续播放完成，成功率: ${successRate.toFixed(1)}%`, 'success');
+            showStatus(`✅ 连续播放完成，成功率: ${successRate.toFixed(1)}%`, 'success');
+        }
+
+        // 重置引擎
+        async function resetEngine() {
+            log('重置语音引擎...');
+            
+            try {
+                speechSynthesis.cancel();
+                
+                await new Promise(resolve => {
+                    setTimeout(() => {
+                        const voices = speechSynthesis.getVoices();
+                        log(`引擎重置完成，可用语音: ${voices.length}`, 'success');
+                        resolve();
+                    }, 300);
+                });
+                
+                showStatus('✅ 语音引擎重置完成', 'success');
+                
+            } catch (error) {
+                log(`引擎重置失败: ${error.message}`, 'error');
+                showStatus(`❌ 引擎重置失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示可用语音
+        function showVoices() {
+            const voices = speechSynthesis.getVoices();
+            log('=== 可用语音列表 ===');
+            
+            if (voices.length === 0) {
+                log('没有可用语音', 'warning');
+            } else {
+                voices.forEach((voice, index) => {
+                    log(`${index + 1}. ${voice.name} (${voice.lang}) - ${voice.localService ? '本地' : '在线'}`);
+                });
+            }
+            
+            log('=== 语音列表结束 ===');
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('页面加载完成');
+            
+            // 监听语音列表变化
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = () => {
+                    const voices = speechSynthesis.getVoices();
+                    log(`语音列表更新: ${voices.length} 个语音可用`);
+                };
+            }
+            
+            // 自动检测环境
+            setTimeout(() => {
+                testEnvironment();
+            }, 1000);
+        });
+
+        // 自动激活用户交互
+        document.addEventListener('click', () => {
+            if (!userInteracted) {
+                activateInteraction();
+            }
+        }, { once: true });
+    </script>
+</body>
+</html>

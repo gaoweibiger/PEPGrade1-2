@@ -7,6 +7,8 @@ interface SpeechOptions {
   pitch?: number;
   volume?: number;
   showAlert?: boolean;
+  enablePronunciationCorrection?: boolean;
+  showCorrectionInfo?: boolean;
 }
 
 export const useSpeech = () => {
@@ -16,18 +18,13 @@ export const useSpeech = () => {
       rate,
       pitch = 1,
       volume = 1,
-      showAlert = true
+      showAlert = true,
+      enablePronunciationCorrection = true,
+      showCorrectionInfo = false
     } = options;
 
-    const envInfo = SpeechUtils.getEnvironmentInfo();
-    
-    // 微信浏览器特殊提示
-    if (envInfo.isWeChat && !envInfo.userInteracted && showAlert) {
-      alert('请先点击页面任意位置激活语音功能！');
-      return false;
-    }
-
     // 根据环境自动调整播放速度
+    const envInfo = SpeechUtils.getEnvironmentInfo();
     const adjustedRate = rate || (envInfo.isWeChat ? 0.7 : 0.8);
 
     try {
@@ -35,12 +32,10 @@ export const useSpeech = () => {
         lang,
         rate: adjustedRate,
         pitch,
-        volume
+        volume,
+        enablePronunciationCorrection,
+        showCorrectionInfo
       });
-
-      if (!success && showAlert && envInfo.isWeChat) {
-        alert('语音播放失败！\n请确保：\n1. 已与页面交互\n2. 手机音量已开启\n3. 网络连接正常');
-      }
 
       return success;
     } catch (error) {
@@ -79,15 +74,8 @@ export const useSpeech = () => {
       showAlert = true
     } = options;
 
-    const envInfo = SpeechUtils.getEnvironmentInfo();
-
-    // 微信浏览器特殊提示
-    if (envInfo.isWeChat && !envInfo.userInteracted && showAlert) {
-      alert('请先点击页面任意位置激活语音功能！');
-      return [];
-    }
-
     // 根据环境自动调整播放速度
+    const envInfo = SpeechUtils.getEnvironmentInfo();
     const adjustedRate = rate || (envInfo.isWeChat ? 0.7 : 0.8);
 
     try {
@@ -122,6 +110,27 @@ export const useSpeech = () => {
     await SpeechUtils.resetSpeechEngine();
   }, []);
 
+  // 读音修正相关方法
+  const previewPronunciationCorrection = useCallback((text: string) => {
+    return SpeechUtils.previewPronunciationCorrection(text);
+  }, []);
+
+  const setPronunciationCorrectionEnabled = useCallback((enabled: boolean) => {
+    SpeechUtils.setPronunciationCorrectionEnabled(enabled);
+  }, []);
+
+  const isPronunciationCorrectionEnabled = useCallback(() => {
+    return SpeechUtils.isPronunciationCorrectionEnabled();
+  }, []);
+
+  const getSupportedAbbreviations = useCallback(() => {
+    return SpeechUtils.getSupportedAbbreviations();
+  }, []);
+
+  const addCustomPronunciationRule = useCallback((original: string, corrected: string) => {
+    SpeechUtils.addCustomPronunciationRule(original, corrected);
+  }, []);
+
   return {
     speak,
     speakList,
@@ -133,7 +142,13 @@ export const useSpeech = () => {
     reset,
     getVoices,
     getRecommendedVoice,
-    getStats
+    getStats,
+    // 读音修正功能
+    previewPronunciationCorrection,
+    setPronunciationCorrectionEnabled,
+    isPronunciationCorrectionEnabled,
+    getSupportedAbbreviations,
+    addCustomPronunciationRule
   };
 };
 

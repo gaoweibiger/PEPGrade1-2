@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速语音测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 30px;
+        }
+        .button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        .button:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .status.success { background: #065f46; color: #10b981; }
+        .status.error { background: #7f1d1d; color: #ef4444; }
+        .status.warning { background: #78350f; color: #f59e0b; }
+        .status.info { background: #1e3a8a; color: #3b82f6; }
+        .log {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 快速语音测试</h1>
+        
+        <div id="status" class="status info">
+            点击下面的按钮开始测试
+        </div>
+
+        <button class="button" onclick="activateAndTest()">
+            🚀 激活并测试语音
+        </button>
+
+        <button class="button" onclick="testBasicSpeech()">
+            🎯 基础语音测试
+        </button>
+
+        <button class="button" onclick="showEnvironment()">
+            📊 显示环境信息
+        </button>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            const div = document.createElement('div');
+            div.textContent = logEntry;
+            div.style.color = type === 'error' ? '#ef4444' : 
+                             type === 'success' ? '#10b981' : 
+                             type === 'warning' ? '#f59e0b' : '#94a3b8';
+            
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            
+            console.log(logEntry);
+        }
+
+        function showStatus(message, type = 'info') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // 检查基础支持
+        const speechSupported = 'speechSynthesis' in window;
+        const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+
+        log(`浏览器支持语音合成: ${speechSupported}`);
+        log(`微信浏览器: ${isWeChat}`);
+
+        // 激活并测试
+        async function activateAndTest() {
+            log('开始激活用户交互...');
+            showStatus('🔧 正在激活用户交互...', 'info');
+
+            try {
+                // 手动激活用户交互
+                if (window.activateUserInteraction) {
+                    const activated = window.activateUserInteraction();
+                    log(`用户交互激活结果: ${activated ? '成功' : '已激活'}`);
+                } else {
+                    log('activateUserInteraction 函数不可用，使用备用方法');
+                    
+                    // 备用激活方法
+                    const clickEvent = new Event('click', { bubbles: true });
+                    document.dispatchEvent(clickEvent);
+                    log('已触发点击事件');
+                }
+
+                // 等待一下让激活生效
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // 立即测试语音
+                await testBasicSpeech();
+
+            } catch (error) {
+                log(`激活失败: ${error.message}`, 'error');
+                showStatus('❌ 激活失败', 'error');
+            }
+        }
+
+        // 基础语音测试
+        async function testBasicSpeech() {
+            if (!speechSupported) {
+                showStatus('❌ 浏览器不支持语音合成', 'error');
+                return;
+            }
+
+            log('开始基础语音测试...');
+            showStatus('🎵 正在测试语音播放...', 'info');
+
+            try {
+                const utterance = new SpeechSynthesisUtterance('Hello, this is a quick test!');
+                utterance.lang = 'en-US';
+                utterance.rate = isWeChat ? 0.8 : 0.9;
+                utterance.volume = 1;
+
+                let started = false;
+                let ended = false;
+
+                const timeout = setTimeout(() => {
+                    if (!started) {
+                        log('语音播放启动超时', 'error');
+                        showStatus('❌ 语音播放启动超时', 'error');
+                    }
+                }, 2000);
+
+                utterance.onstart = () => {
+                    started = true;
+                    clearTimeout(timeout);
+                    log('语音播放开始', 'success');
+                    showStatus('🎵 语音正在播放...', 'info');
+                };
+
+                utterance.onend = () => {
+                    ended = true;
+                    log('语音播放完成', 'success');
+                    showStatus('✅ 语音播放成功！', 'success');
+                };
+
+                utterance.onerror = (event) => {
+                    clearTimeout(timeout);
+                    log(`语音播放错误: ${event.error}`, 'error');
+                    showStatus(`❌ 语音播放错误: ${event.error}`, 'error');
+                };
+
+                speechSynthesis.cancel();
+                speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                log(`语音测试异常: ${error.message}`, 'error');
+                showStatus(`❌ 语音测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示环境信息
+        function showEnvironment() {
+            log('=== 环境信息 ===');
+            log(`浏览器: ${navigator.userAgent}`);
+            log(`语音合成支持: ${speechSupported}`);
+            
+            if (speechSupported) {
+                const voices = speechSynthesis.getVoices();
+                log(`可用语音数量: ${voices.length}`);
+                
+                if (voices.length > 0) {
+                    const englishVoices = voices.filter(v => v.lang.startsWith('en-'));
+                    log(`英语语音数量: ${englishVoices.length}`);
+                    
+                    if (englishVoices.length > 0) {
+                        log(`推荐语音: ${englishVoices[0].name} (${englishVoices[0].lang})`);
+                    }
+                }
+                
+                log(`语音合成器状态: ${speechSynthesis.speaking ? '播放中' : '空闲'}`);
+            }
+            
+            if (isWeChat) {
+                const versionMatch = navigator.userAgent.match(/MicroMessenger\/(\d+)\.(\d+)\.(\d+)/);
+                if (versionMatch) {
+                    const version = `${versionMatch[1]}.${versionMatch[2]}.${versionMatch[3]}`;
+                    log(`微信版本: ${version}`);
+                }
+                
+                log(`小程序环境: ${window.__wxjs_environment === 'miniprogram' ? '是' : '否'}`);
+            }
+
+            // 检查全局对象
+            if (window.SpeechUtils) {
+                const envInfo = window.SpeechUtils.getEnvironmentInfo();
+                log(`SpeechUtils 环境信息:`, 'info');
+                log(`- 用户交互: ${envInfo.userInteracted}`);
+                log(`- 支持级别: ${envInfo.supportLevel}`);
+                log(`- 引擎预热: ${window.SpeechUtils.isEngineWarmedUp || '未知'}`);
+            } else {
+                log('SpeechUtils 不可用', 'warning');
+            }
+            
+            log('=== 环境信息结束 ===');
+            showStatus('✅ 环境信息已显示', 'success');
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('页面加载完成');
+            
+            // 监听语音列表变化
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = () => {
+                    const voices = speechSynthesis.getVoices();
+                    log(`语音列表更新: ${voices.length} 个语音可用`);
+                };
+            }
+            
+            // 自动显示环境信息
+            setTimeout(() => {
+                showEnvironment();
+            }, 1000);
+        });
+
+        // 监听用户交互激活事件
+        window.addEventListener('userInteractionActivated', (event) => {
+            log(`收到用户交互激活事件: ${event.detail.manual ? '手动' : '自动'}`, 'success');
+        });
+    </script>
+</body>
+</html>

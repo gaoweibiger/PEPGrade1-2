@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连读修正测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .original {
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 5px;
+        }
+        .corrected {
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+        .speak-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .speak-btn:hover {
+            background: #0056b3;
+        }
+        .corrected-btn {
+            background: #28a745;
+        }
+        .corrected-btn:hover {
+            background: #1e7e34;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 连读修正测试</h1>
+        
+        <div class="test-item">
+            <div class="original">原文: "in the evening"</div>
+            <div class="corrected">修正后: "in the, evening"</div>
+            <button class="speak-btn" onclick="speak('in the evening')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('in the, evening')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "in the morning"</div>
+            <div class="corrected">修正后: "in the, morning"</div>
+            <button class="speak-btn" onclick="speak('in the morning')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('in the, morning')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "the evening"</div>
+            <div class="corrected">修正后: "the, evening"</div>
+            <button class="speak-btn" onclick="speak('the evening')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('the, evening')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "the apple"</div>
+            <div class="corrected">修正后: "the, apple"</div>
+            <button class="speak-btn" onclick="speak('the apple')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('the, apple')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "in the afternoon"</div>
+            <div class="corrected">修正后: "in the, afternoon"</div>
+            <button class="speak-btn" onclick="speak('in the afternoon')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('in the, afternoon')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "My teeth are clean"</div>
+            <div class="corrected">修正后: "My teeth, are clean"</div>
+            <button class="speak-btn" onclick="speak('My teeth are clean')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('My teeth, are clean')">播放修正后</button>
+        </div>
+
+        <div class="test-item">
+            <div class="original">原文: "teeth are"</div>
+            <div class="corrected">修正后: "teeth, are"</div>
+            <button class="speak-btn" onclick="speak('teeth are')">播放原文</button>
+            <button class="speak-btn corrected-btn" onclick="speak('teeth, are')">播放修正后</button>
+        </div>
+    </div>
+
+    <script>
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                // 停止当前播放
+                speechSynthesis.cancel();
+                
+                // 创建新的语音
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                
+                // 播放语音
+                speechSynthesis.speak(utterance);
+                
+                console.log(`播放: "${text}"`);
+            } else {
+                alert('您的浏览器不支持语音合成功能');
+            }
+        }
+
+        // 页面加载完成后的提示
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎵 连读修正测试页面已加载');
+            console.log('点击按钮对比原文和修正后的发音效果');
+        });
+    </script>
+</body>
+</html>

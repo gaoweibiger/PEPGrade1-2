@@ -104,21 +104,58 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
         lang: 'en-US',
         showAlert: retryCount === 0 // 只在第一次尝试时显示提示
       });
-      
+
       if (success) {
         setPlayStatus('success');
         setRetryCount(0);
         onSpeechEnd?.();
-        
+
         // 2秒后重置状态
         setTimeout(() => {
           setPlayStatus('idle');
         }, 2000);
       } else {
-        throw new Error('语音播放失败');
+        // 播放失败，但不抛出异常，而是直接处理失败情况
+        console.warn('语音播放返回失败状态');
+        setPlayStatus('error');
+        setLastError('语音播放失败');
+
+        // 检查环境信息来确定失败原因
+        const envInfo = getEnvironmentInfo();
+        let failureReason = '语音播放失败';
+
+        if (!envInfo.speechSupported) {
+          failureReason = '浏览器不支持语音合成';
+        } else if (envInfo.isWeChat && !envInfo.userInteracted) {
+          failureReason = '需要先与页面交互';
+        } else if (envInfo.isWechatMiniProgram) {
+          failureReason = '微信小程序不支持语音';
+        }
+
+        setLastError(failureReason);
+
+        // 自动重试逻辑 - 减少重试次数避免死循环
+        if (autoRetry && retryCount < 1) { // 只重试1次
+          console.log(`准备重试播放 (${retryCount + 1}/1): ${text}`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            handleSpeak();
+          }, 1500); // 增加重试间隔
+        } else {
+          if (retryCount >= 1) {
+            console.warn(`已达到最大重试次数，停止重试: ${text}`);
+          }
+          onSpeechError?.(failureReason);
+          setRetryCount(0);
+
+          // 3秒后重置状态
+          setTimeout(() => {
+            setPlayStatus('idle');
+          }, 3000);
+        }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '语音播放失败';
+      const errorMessage = error instanceof Error ? error.message : '语音播放异常';
       console.error('语音播放异常:', error);
       setPlayStatus('error');
       setLastError(errorMessage);
@@ -126,7 +163,7 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
       // 检查是否是 synthesis-failed 错误
       const isSynthesisFailed = errorMessage.includes('synthesis-failed');
 
-      // 自动重试逻辑
+      // 自动重试逻辑（仅对真正的异常进行重试）
       if (autoRetry && retryCount < 2 && !isSynthesisFailed) {
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
