@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全局语音管理器测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 15px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #f1f5f9;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .word-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .word-item {
+            background: rgba(71, 85, 105, 0.6);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .word-item:hover {
+            background: rgba(71, 85, 105, 0.8);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        
+        .word-english {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #8b5cf6;
+            margin-bottom: 5px;
+        }
+        
+        .word-chinese {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .speech-btn {
+            background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .speech-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+        
+        .speech-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .speech-btn.loading {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .speech-btn.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .speech-btn.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .status-panel {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        
+        .status-title {
+            font-weight: bold;
+            color: #f1f5f9;
+            margin-bottom: 10px;
+        }
+        
+        .log-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .log-info {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+        
+        .log-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+        }
+        
+        .log-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        
+        .log-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+        
+        .clear-btn {
+            background: rgba(71, 85, 105, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .clear-btn:hover {
+            background: rgba(71, 85, 105, 1);
+        }
+        
+        .test-description {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #dbeafe;
+        }
+        
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🎤 全局语音管理器测试</h1>
+            <p class="subtitle">测试多个语音按钮的全局管理和重试控制</p>
+        </div>
+
+        <div class="test-section">
+            <h2 class="section-title">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                测试场景说明
+            </h2>
+            <div class="test-description">
+                <p><strong>测试目标：</strong>验证全局语音管理器能够确保同时只有一个语音按钮在播放和重试</p>
+                <p><strong>测试方法：</strong>快速点击多个语音按钮，观察是否只有一个在播放，其他按钮被禁用</p>
+                <p><strong>预期结果：</strong>
+                    <br>• 同时只有一个语音在播放
+                    <br>• 其他按钮在播放期间被禁用（半透明状态）
+                    <br>• 重试时也只有一个按钮在重试
+                    <br>• 播放完成后其他按钮恢复可用状态
+                </p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2 class="section-title">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                </svg>
+                单词列表测试
+            </h2>
+            <div class="word-list" id="wordList">
+                <!-- 单词项将通过JavaScript动态生成 -->
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-title">📊 实时状态监控</div>
+            <button class="clear-btn" onclick="clearLogs()">清空日志</button>
+            <div id="statusLogs" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                <!-- 日志将动态添加 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 测试数据
+        const testWords = [
+            { english: 'hello', chinese: '你好' },
+            { english: 'world', chinese: '世界' },
+            { english: 'test', chinese: '测试' },
+            { english: 'speech', chinese: '语音' },
+            { english: 'button', chinese: '按钮' },
+            { english: 'global', chinese: '全局' },
+            { english: 'manager', chinese: '管理器' },
+            { english: 'retry', chinese: '重试' }
+        ];
+
+        // 日志记录
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('statusLogs');
+            const logItem = document.createElement('div');
+            logItem.className = `log-item log-${type}`;
+            logItem.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsContainer.appendChild(logItem);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('statusLogs').innerHTML = '';
+        }
+
+        // 模拟语音播放
+        function simulateSpeech(text, button) {
+            return new Promise((resolve) => {
+                addLog(`开始播放: ${text}`, 'info');
+                button.textContent = '播放中...';
+                button.className = 'speech-btn loading';
+                button.disabled = true;
+
+                // 模拟播放时间（1-3秒）
+                const duration = 1000 + Math.random() * 2000;
+                
+                setTimeout(() => {
+                    // 模拟成功/失败（80%成功率）
+                    const success = Math.random() > 0.2;
+                    
+                    if (success) {
+                        addLog(`播放成功: ${text}`, 'success');
+                        button.textContent = '播放成功';
+                        button.className = 'speech-btn success';
+                        
+                        setTimeout(() => {
+                            button.textContent = '🔊 播放';
+                            button.className = 'speech-btn';
+                            button.disabled = false;
+                        }, 1000);
+                    } else {
+                        addLog(`播放失败: ${text}`, 'error');
+                        button.textContent = '播放失败';
+                        button.className = 'speech-btn error';
+                        
+                        setTimeout(() => {
+                            button.textContent = '🔊 播放';
+                            button.className = 'speech-btn';
+                            button.disabled = false;
+                        }, 2000);
+                    }
+                    
+                    resolve(success);
+                }, duration);
+            });
+        }
+
+        // 全局语音管理器（简化版本，用于测试）
+        class TestGlobalSpeechManager {
+            constructor() {
+                this.currentPlayingId = null;
+                this.buttons = new Map();
+            }
+
+            register(id, button) {
+                this.buttons.set(id, button);
+            }
+
+            canPlay(id) {
+                return !this.currentPlayingId || this.currentPlayingId === id;
+            }
+
+            requestPlay(id) {
+                if (this.currentPlayingId && this.currentPlayingId !== id) {
+                    return false;
+                }
+                this.currentPlayingId = id;
+                this.updateButtonStates();
+                return true;
+            }
+
+            releasePlay(id) {
+                if (this.currentPlayingId === id) {
+                    this.currentPlayingId = null;
+                    this.updateButtonStates();
+                }
+            }
+
+            updateButtonStates() {
+                this.buttons.forEach((button, id) => {
+                    if (this.currentPlayingId && this.currentPlayingId !== id) {
+                        button.style.opacity = '0.5';
+                        button.style.cursor = 'not-allowed';
+                        button.disabled = true;
+                    } else if (!this.currentPlayingId) {
+                        button.style.opacity = '1';
+                        button.style.cursor = 'pointer';
+                        button.disabled = false;
+                    }
+                });
+            }
+        }
+
+        const globalManager = new TestGlobalSpeechManager();
+
+        // 创建单词项
+        function createWordItem(word, index) {
+            const wordItem = document.createElement('div');
+            wordItem.className = 'word-item';
+            
+            const buttonId = `speech-btn-${index}`;
+            
+            wordItem.innerHTML = `
+                <div class="word-english">${word.english}</div>
+                <div class="word-chinese">${word.chinese}</div>
+                <button class="speech-btn" id="${buttonId}">🔊 播放</button>
+            `;
+            
+            const button = wordItem.querySelector(`#${buttonId}`);
+            globalManager.register(buttonId, button);
+            
+            button.addEventListener('click', async () => {
+                if (!globalManager.canPlay(buttonId)) {
+                    addLog(`其他语音正在播放，忽略点击: ${word.english}`, 'warning');
+                    return;
+                }
+                
+                if (!globalManager.requestPlay(buttonId)) {
+                    addLog(`无法获取播放权限: ${word.english}`, 'warning');
+                    return;
+                }
+                
+                try {
+                    await simulateSpeech(word.english, button);
+                } finally {
+                    globalManager.releasePlay(buttonId);
+                }
+            });
+            
+            return wordItem;
+        }
+
+        // 初始化页面
+        function initializePage() {
+            const wordList = document.getElementById('wordList');
+            
+            testWords.forEach((word, index) => {
+                const wordItem = createWordItem(word, index);
+                wordList.appendChild(wordItem);
+            });
+            
+            addLog('页面初始化完成，可以开始测试', 'success');
+            addLog('请快速点击多个语音按钮，观察全局管理效果', 'info');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>

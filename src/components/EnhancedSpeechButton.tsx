@@ -1,7 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Volume2, VolumeX, AlertCircle, Loader2, CheckCircle, Settings } from 'lucide-react';
 import { useSpeech } from '../hooks/useSpeech';
 import SpeechTroubleshooter from './SpeechTroubleshooter';
+
+// 全局语音播放管理器
+class GlobalSpeechManager {
+  private static instance: GlobalSpeechManager;
+  private currentPlayingId: string | null = null;
+  private currentRetryId: string | null = null;
+  private listeners: Map<string, (isActive: boolean) => void> = new Map();
+
+  static getInstance(): GlobalSpeechManager {
+    if (!GlobalSpeechManager.instance) {
+      GlobalSpeechManager.instance = new GlobalSpeechManager();
+    }
+    return GlobalSpeechManager.instance;
+  }
+
+  // 注册语音按钮
+  register(id: string, callback: (isActive: boolean) => void) {
+    this.listeners.set(id, callback);
+  }
+
+  // 注销语音按钮
+  unregister(id: string) {
+    this.listeners.delete(id);
+    if (this.currentPlayingId === id) {
+      this.currentPlayingId = null;
+    }
+    if (this.currentRetryId === id) {
+      this.currentRetryId = null;
+    }
+  }
+
+  // 请求播放权限
+  requestPlay(id: string): boolean {
+    if (this.currentPlayingId && this.currentPlayingId !== id) {
+      return false; // 其他按钮正在播放
+    }
+    this.currentPlayingId = id;
+    this.notifyListeners(id);
+    return true;
+  }
+
+  // 请求重试权限
+  requestRetry(id: string): boolean {
+    if (this.currentRetryId && this.currentRetryId !== id) {
+      return false; // 其他按钮正在重试
+    }
+    this.currentRetryId = id;
+    this.notifyListeners(id);
+    return true;
+  }
+
+  // 释放播放权限
+  releasePlay(id: string) {
+    if (this.currentPlayingId === id) {
+      this.currentPlayingId = null;
+      this.notifyListeners(null);
+    }
+  }
+
+  // 释放重试权限
+  releaseRetry(id: string) {
+    if (this.currentRetryId === id) {
+      this.currentRetryId = null;
+      this.notifyListeners(null);
+    }
+  }
+
+  // 检查是否可以播放
+  canPlay(id: string): boolean {
+    return !this.currentPlayingId || this.currentPlayingId === id;
+  }
+
+  // 检查是否可以重试
+  canRetry(id: string): boolean {
+    return !this.currentRetryId || this.currentRetryId === id;
+  }
+
+  // 通知所有监听器
+  private notifyListeners(activeId: string | null) {
+    this.listeners.forEach((callback, id) => {
+      callback(activeId === id);
+    });
+  }
+}
 
 interface EnhancedSpeechButtonProps {
   text: string;
@@ -33,9 +117,12 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const [lastError, setLastError] = useState<string>('');
   const [showTroubleshooter, setShowTroubleshooter] = useState(false);
+  const [isGloballyActive, setIsGloballyActive] = useState(false);
   const { speak, isSupported, getEnvironmentInfo } = useSpeech();
   const [environmentInfo, setEnvironmentInfo] = useState(getEnvironmentInfo());
   const [isMounted, setIsMounted] = useState(true);
+  const buttonIdRef = useRef<string>(`speech-btn-${Math.random().toString(36).substr(2, 9)}`);
+  const globalManager = GlobalSpeechManager.getInstance();
 
   useEffect(() => {
     setEnvironmentInfo(getEnvironmentInfo());
@@ -43,10 +130,16 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
 
   // 组件卸载时清理
   useEffect(() => {
+    const buttonId = buttonIdRef.current;
+    // 注册到全局管理器
+    globalManager.register(buttonId, setIsGloballyActive);
+
     return () => {
       setIsMounted(false);
+      // 从全局管理器注销
+      globalManager.unregister(buttonId);
     };
-  }, []);
+  }, [globalManager]);
 
   const getSizeClasses = () => {
     switch (size) {
@@ -93,15 +186,29 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
   };
 
   const handleSpeak = async () => {
+    const buttonId = buttonIdRef.current;
+
     // 防止重复点击和死循环
     if (isPlaying) {
       console.log('语音正在播放中，忽略重复点击');
       return;
     }
 
+    // 检查全局播放权限
+    if (!globalManager.canPlay(buttonId)) {
+      console.log('其他语音正在播放，忽略当前请求');
+      return;
+    }
+
     if (!isSupported()) {
       setPlayStatus('error');
       onSpeechError?.('语音功能不支持');
+      return;
+    }
+
+    // 请求播放权限
+    if (!globalManager.requestPlay(buttonId)) {
+      console.log('无法获取播放权限');
       return;
     }
 
@@ -123,11 +230,15 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
       if (success) {
         setPlayStatus('success');
         setRetryCount(0);
+        globalManager.releasePlay(buttonId);
+        globalManager.releaseRetry(buttonId);
         onSpeechEnd?.();
 
         // 2秒后重置状态
         setTimeout(() => {
-          setPlayStatus('idle');
+          if (isMounted) {
+            setPlayStatus('idle');
+          }
         }, 2000);
       } else {
         // 播放失败，但不抛出异常，而是直接处理失败情况
@@ -150,32 +261,54 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
         setLastError(failureReason);
 
         // 自动重试逻辑 - 最多重试2次，避免死循环
-        if (autoRetry && retryCount < 2) {
+        if (autoRetry && retryCount < 2 && globalManager.canRetry(buttonId)) {
           const nextRetryCount = retryCount + 1;
           console.log(`准备重试播放 (${nextRetryCount}/2): ${text}`);
           setRetryCount(nextRetryCount);
 
-          // 递增延迟：第1次重试1.5秒，第2次重试3秒
-          const retryDelay = nextRetryCount * 1500;
-          setTimeout(() => {
-            // 检查组件是否仍然挂载
-            if (isMounted) {
-              handleSpeak();
-            } else {
-              console.log('组件已卸载，取消重试');
-            }
-          }, retryDelay);
+          // 请求重试权限
+          if (globalManager.requestRetry(buttonId)) {
+            // 递增延迟：第1次重试1.5秒，第2次重试3秒
+            const retryDelay = nextRetryCount * 1500;
+            setTimeout(() => {
+              // 检查组件是否仍然挂载和是否仍有重试权限
+              if (isMounted && globalManager.canRetry(buttonId)) {
+                handleSpeak();
+              } else {
+                console.log('组件已卸载或失去重试权限，取消重试');
+                globalManager.releasePlay(buttonId);
+                globalManager.releaseRetry(buttonId);
+              }
+            }, retryDelay);
+          } else {
+            console.log('无法获取重试权限，停止重试');
+            globalManager.releasePlay(buttonId);
+            onSpeechError?.(failureReason);
+            setRetryCount(0);
+            setTimeout(() => {
+              if (isMounted) {
+                setPlayStatus('idle');
+              }
+            }, 3000);
+          }
         } else {
           // 达到最大重试次数或不自动重试
           if (retryCount >= 2) {
             console.warn(`已达到最大重试次数(2次)，停止重试: ${text}`);
+          } else if (!globalManager.canRetry(buttonId)) {
+            console.log('其他按钮正在重试，停止当前重试');
           }
+
+          globalManager.releasePlay(buttonId);
+          globalManager.releaseRetry(buttonId);
           onSpeechError?.(failureReason);
           setRetryCount(0); // 重置重试计数
 
           // 3秒后重置状态
           setTimeout(() => {
-            setPlayStatus('idle');
+            if (isMounted) {
+              setPlayStatus('idle');
+            }
           }, 3000);
         }
       }
@@ -192,46 +325,73 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
                           errorMessage.includes('network error');
 
       // 自动重试逻辑（仅对非致命错误进行重试）
-      if (autoRetry && retryCount < 2 && !isFatalError) {
+      if (autoRetry && retryCount < 2 && !isFatalError && globalManager.canRetry(buttonId)) {
         const nextRetryCount = retryCount + 1;
         console.log(`异常重试 (${nextRetryCount}/2): ${errorMessage}`);
         setRetryCount(nextRetryCount);
 
-        // 递增延迟：第1次重试1秒，第2次重试2秒
-        const retryDelay = nextRetryCount * 1000;
-        setTimeout(() => {
-          // 检查组件是否仍然挂载
-          if (isMounted) {
-            handleSpeak();
-          } else {
-            console.log('组件已卸载，取消异常重试');
-          }
-        }, retryDelay);
+        // 请求重试权限
+        if (globalManager.requestRetry(buttonId)) {
+          // 递增延迟：第1次重试1秒，第2次重试2秒
+          const retryDelay = nextRetryCount * 1000;
+          setTimeout(() => {
+            // 检查组件是否仍然挂载和是否仍有重试权限
+            if (isMounted && globalManager.canRetry(buttonId)) {
+              handleSpeak();
+            } else {
+              console.log('组件已卸载或失去重试权限，取消异常重试');
+              globalManager.releasePlay(buttonId);
+              globalManager.releaseRetry(buttonId);
+            }
+          }, retryDelay);
+        } else {
+          console.log('无法获取异常重试权限，停止重试');
+          globalManager.releasePlay(buttonId);
+          onSpeechError?.(errorMessage);
+          setRetryCount(0);
+          setTimeout(() => {
+            if (isMounted) {
+              setPlayStatus('idle');
+            }
+          }, 3000);
+        }
       } else {
         // 不重试的情况
         if (isFatalError) {
           console.warn(`致命错误，不重试: ${errorMessage}`);
         } else if (retryCount >= 2) {
           console.warn(`异常重试次数已达上限，停止重试: ${errorMessage}`);
+        } else if (!globalManager.canRetry(buttonId)) {
+          console.log('其他按钮正在重试，停止当前异常重试');
         }
 
+        globalManager.releasePlay(buttonId);
+        globalManager.releaseRetry(buttonId);
         onSpeechError?.(errorMessage);
         setRetryCount(0); // 重置重试计数
 
         // 对于致命错误，显示故障排除器
         if (isFatalError) {
           setTimeout(() => {
-            setShowTroubleshooter(true);
+            if (isMounted) {
+              setShowTroubleshooter(true);
+            }
           }, 1000);
         }
 
         // 3秒后重置状态
         setTimeout(() => {
-          setPlayStatus('idle');
+          if (isMounted) {
+            setPlayStatus('idle');
+          }
         }, 3000);
       }
     } finally {
       setIsPlaying(false);
+      // 如果没有进入重试逻辑，确保释放权限
+      if (playStatus !== 'loading' || retryCount === 0) {
+        globalManager.releasePlay(buttonId);
+      }
     }
   };
 
@@ -247,13 +407,14 @@ const EnhancedSpeechButton: React.FC<EnhancedSpeechButtonProps> = ({
     <div className="relative group">
       <button
         onClick={handleSpeak}
-        disabled={isPlaying}
+        disabled={isPlaying || (!isGloballyActive && !globalManager.canPlay(buttonIdRef.current))}
         className={`
           ${getSizeClasses()}
           ${getVariantClasses()}
-          rounded-full flex items-center justify-center transition-all duration-300 
+          rounded-full flex items-center justify-center transition-all duration-300
           transform hover:scale-110 shadow-lg hover:shadow-purple-500/30
           ${isPlaying ? 'cursor-wait' : 'cursor-pointer'}
+          ${!isGloballyActive && !globalManager.canPlay(buttonIdRef.current) ? 'opacity-50 cursor-not-allowed' : ''}
           ${playStatus === 'success' ? 'ring-2 ring-green-400' : ''}
           ${playStatus === 'error' ? 'ring-2 ring-red-400' : ''}
           ${className}
