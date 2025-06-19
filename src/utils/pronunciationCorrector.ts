@@ -69,8 +69,8 @@ export class PronunciationCorrector {
     'LA': 'Los Angeles',
     'SF': 'San Francisco',
     
-    // 技术缩写
-    'IT': 'I T',
+    // 技术缩写 - 🔧 移除 'IT' 以避免与普通单词 "It" 冲突
+    // 'IT': 'I T',  // 🔧 注释掉，因为会错误匹配 "It can swim" 中的 "It"
     'AI': 'A I',
     'UI': 'U I',
     'API': 'A P I',
@@ -593,10 +593,30 @@ export class PronunciationCorrector {
   private static correctLetterSpelling(text: string, corrections: any[], debugMode: boolean): string {
     let result = text;
 
-    // 匹配独立的单个字母（前后有空格或标点符号）
-    const letterRegex = /\b([A-Z])\b/g;
+    // 更精确地匹配独立的单个字母：
+    // 1. 前后必须是空格、标点符号或字符串开始/结束
+    // 2. 不能是常见单词的一部分（如 "I", "A" 等代词）
+    // 3. 排除常见的单字母单词
+    const commonSingleLetterWords = ['I', 'A', 'a'];
 
-    result = result.replace(letterRegex, (match, letter) => {
+    const letterRegex = /(?:^|[\s\.,!?;:])\s*([A-Z])\s*(?=[\s\.,!?;:]|$)/g;
+
+    result = result.replace(letterRegex, (match, letter, offset) => {
+      // 检查是否是常见的单字母单词
+      if (commonSingleLetterWords.includes(letter)) {
+        return match; // 不修正常见单词
+      }
+
+      // 检查前后文，确保这确实是一个独立的字母而不是单词
+      const beforeChar = offset > 0 ? text[offset - 1] : ' ';
+      const afterIndex = offset + match.length;
+      const afterChar = afterIndex < text.length ? text[afterIndex] : ' ';
+
+      // 如果前后都是字母，说明这是单词的一部分，不应该拼读
+      if (/[a-zA-Z]/.test(beforeChar) || /[a-zA-Z]/.test(afterChar)) {
+        return match;
+      }
+
       const spelling = this.letterMap[letter.toUpperCase()];
       if (spelling) {
         if (debugMode) {
@@ -606,7 +626,8 @@ export class PronunciationCorrector {
             corrected: spelling
           });
         }
-        return spelling;
+        // 保持原有的空格和标点符号格式
+        return match.replace(letter, spelling);
       }
       return match;
     });
@@ -731,9 +752,18 @@ export class PronunciationCorrector {
       }
     }
 
-    // 检查是否包含独立的字母
-    if (/\b[A-Z]\b/.test(text)) {
-      return true;
+    // 检查是否包含独立的字母（排除常见单字母单词）
+    const commonSingleLetterWords = ['I', 'A', 'a'];
+    const letterMatches = text.match(/(?:^|[\s\.,!?;:])\s*([A-Z])\s*(?=[\s\.,!?;:]|$)/g);
+    if (letterMatches) {
+      // 检查是否有非常见单词的独立字母
+      const hasIndependentLetters = letterMatches.some(match => {
+        const letter = match.trim().replace(/[^\w]/g, '');
+        return !commonSingleLetterWords.includes(letter);
+      });
+      if (hasIndependentLetters) {
+        return true;
+      }
     }
 
     // 检查是否包含数字

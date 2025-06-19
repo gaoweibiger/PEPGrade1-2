@@ -8,8 +8,7 @@ import ChallengeMode from './components/ChallengeMode';
 import WeChatGuide from './components/WeChatGuide';
 import SpeechGuide from './components/SpeechGuide';
 import SpeechCompatibilityAlert from './components/SpeechCompatibilityAlert';
-import SpeechPerformanceMonitor from './components/SpeechPerformanceMonitor';
-import PronunciationCorrectionDemo from './components/PronunciationCorrectionDemo';
+
 import { SpeechUtils } from './utils/speechUtils';
 
 type Section = 'home' | 'units' | 'words' | 'phrases' | 'sentences' | 'random';
@@ -19,8 +18,7 @@ function App() {
   const [showWeChatTip, setShowWeChatTip] = useState(false);
   const [showWeChatGuide, setShowWeChatGuide] = useState(false);
   const [showSpeechGuide, setShowSpeechGuide] = useState(false);
-  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
-  const [showPronunciationDemo, setShowPronunciationDemo] = useState(false);
+
 
   useEffect(() => {
     const envInfo = SpeechUtils.getEnvironmentInfo();
@@ -222,10 +220,7 @@ function App() {
                       description="混合所有类型题目，全面测试你的英语水平，挑战你的极限！"
                       icon={Shuffle}
                       gradient="bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600"
-                      onClick={() => {
-                        console.log('随机闯关按钮被点击'); // 调试日志
-                        setCurrentSection('random');
-                      }}
+                      onClick={() => setCurrentSection('random')}
                     />
                   </div>
                 </div>
@@ -244,26 +239,6 @@ function App() {
                     <p className="text-purple-400 font-bold text-base sm:text-lg bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-3">
                       Practice makes perfect! 熟能生巧！
                     </p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      <button
-                        onClick={() => setShowSpeechGuide(true)}
-                        className="text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 px-3 py-1 rounded-full transition-colors border border-purple-500/30"
-                      >
-                        🎵 语音功能使用指南
-                      </button>
-                      <button
-                        onClick={() => setShowPerformanceMonitor(!showPerformanceMonitor)}
-                        className="text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-3 py-1 rounded-full transition-colors border border-blue-500/30"
-                      >
-                        ⚡ 性能监控
-                      </button>
-                      <button
-                        onClick={() => setShowPronunciationDemo(true)}
-                        className="text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-1 rounded-full transition-colors border border-green-500/30"
-                      >
-                        📝 读音修正演示
-                      </button>
-                    </div>
                   </div>
                 </div>
               </main>
@@ -290,17 +265,7 @@ function App() {
       {/* 语音兼容性提示 */}
       <SpeechCompatibilityAlert />
 
-      {/* 性能监控器 */}
-      <SpeechPerformanceMonitor
-        isVisible={showPerformanceMonitor}
-        onClose={() => setShowPerformanceMonitor(false)}
-      />
 
-      {/* 读音修正演示 */}
-      <PronunciationCorrectionDemo
-        isVisible={showPronunciationDemo}
-        onClose={() => setShowPronunciationDemo(false)}
-      />
     </ErrorBoundary>
   );
 }

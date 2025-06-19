@@ -26,21 +26,21 @@ const NavigationCard: React.FC<NavigationCardProps> = ({
         <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
         {/* 内容 */}
-        <div className="relative z-10 flex flex-col justify-between h-full">
-          {/* 顶部区域 */}
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 backdrop-blur-sm rounded-2xl sm:rounded-3xl flex items-center justify-center group-hover:bg-white/30 transition-all duration-500 shadow-xl group-hover:scale-110">
+        <div className="relative z-10 flex flex-col h-full">
+          {/* 顶部区域 - 图标和箭头 */}
+          <div className="flex items-start justify-between mb-4 sm:mb-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 backdrop-blur-sm rounded-2xl sm:rounded-3xl flex items-center justify-center group-hover:bg-white/30 transition-all duration-500 shadow-xl group-hover:scale-110 flex-shrink-0">
               <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-lg" />
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:translate-x-2 group-hover:scale-110 transition-all duration-500 shadow-lg">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:translate-x-2 group-hover:scale-110 transition-all duration-500 shadow-lg flex-shrink-0">
               <span className="text-xl sm:text-2xl font-bold text-white drop-shadow-lg">→</span>
             </div>
           </div>
-          
-          {/* 中间内容区域 */}
-          <div className="flex-1 flex flex-col justify-center">
-            <h3 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-white drop-shadow-lg leading-tight">{title}</h3>
-            <p className="text-white/90 text-base sm:text-lg leading-relaxed drop-shadow-sm line-clamp-3">{description}</p>
+
+          {/* 中间内容区域 - 标题和描述 */}
+          <div className="flex-1 flex flex-col justify-start">
+            <h3 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-white drop-shadow-lg leading-tight text-left">{title}</h3>
+            <p className="text-white/90 text-base sm:text-lg leading-relaxed drop-shadow-sm line-clamp-3 text-left">{description}</p>
           </div>
           
           {/* 底部进度条效果 */}

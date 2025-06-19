@@ -11,7 +11,7 @@ const PronunciationCorrectionDemo: React.FC<PronunciationCorrectionDemoProps> = 
   isVisible = false, 
   onClose 
 }) => {
-  const [testText, setTestText] = useState('Mr Smith said hello at 3:00 PM. He works for NASA and has a PhD.');
+  const [testText, setTestText] = useState('It can swim very well. The letter B is important.');
   const [correctionPreview, setCorrectionPreview] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [correctionEnabled, setCorrectionEnabled] = useState(true);
@@ -63,8 +63,11 @@ const PronunciationCorrectionDemo: React.FC<PronunciationCorrectionDemoProps> = 
   };
 
   const commonTestTexts = [
+    'It can swim very well.',  // 测试 "It" 不被拼读
     'Mr Smith said hello at 3:00 PM.',
     'Dr Johnson works for NASA and has a PhD.',
+    'The letter B is important.',  // 测试独立字母被拼读
+    'I am a student.',  // 测试 "I" 不被拼读
     'The CEO of IBM will speak at 9:00 AM.',
     'Mrs Brown bought 5 kg of apples.',
     'Prof Wilson teaches AI and ML courses.',
@@ -261,6 +264,7 @@ const PronunciationCorrectionDemo: React.FC<PronunciationCorrectionDemoProps> = 
           <h4 className="text-blue-300 font-medium mb-2">功能说明</h4>
           <ul className="text-blue-200 text-sm space-y-1">
             <li>• <strong>缩写词修正</strong>: Mr → Mister, Dr → Doctor, NASA → N A S A</li>
+            <li>• <strong>字母拼读</strong>: 独立字母 B → bee (但 "It", "I", "A" 等单词不被拼读)</li>
             <li>• <strong>时间修正</strong>: 3:00 → three o clock, PM → pee em</li>
             <li>• <strong>数字修正</strong>: 5 → five, 21 → twenty one</li>
             <li>• <strong>单位修正</strong>: kg → kilogram, km → kilometer</li>
