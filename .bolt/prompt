@@ -1,0 +1,23 @@
+For all designs I ask you to make, have them be beautiful, not cookie cutter. Make webpages that are fully featured and worthy for production.
+
+By default, this template supports JSX syntax with Tailwind CSS classes, React hooks, and Lucide React for icons. Do not install other packages for UI themes, icons, etc unless absolutely necessary or I request them.
+
+Use icons from lucide-react for logos.
+
+### **Project Requirements Template**
+
+**1. Project Type & Tech Stack:**
+* I need to create a **Single-Page Application (SPA)**.
+* Please use the following tech stack: **React** + **TypeScript** + **Vite** + **Tailwind CSS**.
+
+**2. Final Deployment Platform:**
+* This project will ultimately be deployed on **Cloudflare Pages**.
+
+**3. Build & Configuration File Requirements:**
+* Please ensure the correct build configuration for Cloudflare Pages is provided (Build command: `npm run build`, Output directory: `dist`).
+* Please create a `_redirects` file in the `public` folder, suitable for an SPA, to handle client-side routing.
+
+**4. Code Robustness Requirements:**
+* Please add a global **Error Boundary** to the React application's root component (`App.tsx`) to catch and gracefully handle any rendering errors, thus avoiding a blank screen.
+* Please add a simple **Loading Indicator** in `index.html` to show a "Loading..." message to the user before the JavaScript has completely loaded, in order to improve user experience.
+* Please clean up any unused resource links from the template in `index.html` (e.g., the default `vite.svg` icon) and replace it with a simple inline Emoji or SVG icon.

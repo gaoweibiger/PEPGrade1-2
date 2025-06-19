@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信浏览器语音测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        .success { color: #4ade80; }
+        .warning { color: #fbbf24; }
+        .error { color: #f87171; }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #10b981, #059669);
+            color: white;
+        }
+        .btn-test {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            color: white;
+        }
+        .result {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .result.success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+        }
+        .result.error {
+            background: rgba(248, 113, 113, 0.2);
+            border: 1px solid #f87171;
+        }
+        .tips {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">🎵 微信浏览器语音测试</h1>
+        
+        <div class="status">
+            <div class="status-item">
+                <span>浏览器类型:</span>
+                <span id="browser-type">检测中...</span>
+            </div>
+            <div class="status-item">
+                <span>语音支持:</span>
+                <span id="speech-support">检测中...</span>
+            </div>
+            <div class="status-item">
+                <span>用户交互:</span>
+                <span id="user-interaction">检测中...</span>
+            </div>
+        </div>
+
+        <button id="activate-btn" class="btn btn-primary">
+            🚀 激活语音功能
+        </button>
+
+        <button id="test-btn" class="btn btn-test" disabled>
+            🔊 测试语音播放
+        </button>
+
+        <button id="test-chinese-btn" class="btn btn-test" disabled>
+            🇨🇳 测试中文语音
+        </button>
+
+        <div id="result"></div>
+
+        <div class="tips">
+            <strong>💡 使用提示：</strong><br>
+            1. 首先点击"激活语音功能"按钮<br>
+            2. 然后测试语音播放功能<br>
+            3. 如果无声音，请检查手机音量<br>
+            4. 确保没有开启静音模式
+        </div>
+    </div>
+
+    <script>
+        let userInteracted = false;
+        const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+        const speechSupported = 'speechSynthesis' in window;
+
+        function updateStatus() {
+            document.getElementById('browser-type').innerHTML = 
+                isWeChat ? '<span class="success">✓ 微信浏览器</span>' : '<span class="warning">⚠ 其他浏览器</span>';
+            
+            document.getElementById('speech-support').innerHTML = 
+                speechSupported ? '<span class="success">✓ 支持</span>' : '<span class="error">✗ 不支持</span>';
+            
+            document.getElementById('user-interaction').innerHTML = 
+                userInteracted ? '<span class="success">✓ 已激活</span>' : '<span class="warning">⚠ 待激活</span>';
+
+            // 更新按钮状态
+            const testBtn = document.getElementById('test-btn');
+            const testChineseBtn = document.getElementById('test-chinese-btn');
+            const activateBtn = document.getElementById('activate-btn');
+
+            if (userInteracted && speechSupported) {
+                testBtn.disabled = false;
+                testChineseBtn.disabled = false;
+                activateBtn.innerHTML = '✅ 语音功能已激活';
+                activateBtn.className = 'btn btn-success';
+            }
+        }
+
+        function showResult(message, isSuccess) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = `result ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        function speakText(text, lang = 'en-US') {
+            return new Promise((resolve) => {
+                if (!speechSupported) {
+                    resolve(false);
+                    return;
+                }
+
+                try {
+                    speechSynthesis.cancel();
+
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = lang;
+                    utterance.rate = isWeChat ? 0.7 : 0.8;
+                    utterance.pitch = 1;
+                    utterance.volume = 1;
+
+                    let hasStarted = false;
+                    let timeoutId;
+
+                    utterance.onstart = () => {
+                        hasStarted = true;
+                        if (timeoutId) clearTimeout(timeoutId);
+                    };
+
+                    utterance.onend = () => {
+                        if (timeoutId) clearTimeout(timeoutId);
+                        resolve(true);
+                    };
+
+                    utterance.onerror = (event) => {
+                        console.error('语音播放错误:', event.error);
+                        if (timeoutId) clearTimeout(timeoutId);
+                        resolve(false);
+                    };
+
+                    // 微信浏览器特殊处理
+                    if (isWeChat) {
+                        setTimeout(() => {
+                            speechSynthesis.speak(utterance);
+
+                            timeoutId = setTimeout(() => {
+                                if (!hasStarted) {
+                                    speechSynthesis.cancel();
+                                    speechSynthesis.speak(utterance);
+                                }
+                            }, 1000);
+                        }, 200);
+                    } else {
+                        speechSynthesis.speak(utterance);
+                    }
+
+                } catch (error) {
+                    console.error('语音播放异常:', error);
+                    resolve(false);
+                }
+            });
+        }
+
+        // 智能语音测试函数
+        function testSpeechIntelligent(text) {
+            return new Promise((resolve) => {
+                if (!speechSupported) {
+                    resolve({
+                        success: false,
+                        message: '浏览器不支持语音合成',
+                        details: '请使用支持 Web Speech API 的现代浏览器'
+                    });
+                    return;
+                }
+
+                if (isWeChat && !userInteracted) {
+                    resolve({
+                        success: false,
+                        message: '需要先与页面交互',
+                        details: '请点击页面任意位置激活语音功能'
+                    });
+                    return;
+                }
+
+                try {
+                    speechSynthesis.cancel();
+
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'en-US';
+                    utterance.rate = isWeChat ? 0.7 : 0.8;
+                    utterance.volume = 1;
+
+                    let speechStarted = false;
+                    let speechEnded = false;
+
+                    const timeout = setTimeout(() => {
+                        if (!speechStarted) {
+                            resolve({
+                                success: false,
+                                message: '语音播放启动超时',
+                                details: '可能是设备音量关闭或浏览器限制'
+                            });
+                        } else if (!speechEnded) {
+                            resolve({
+                                success: true,
+                                message: '语音播放已开始',
+                                details: '如果听不到声音，请检查设备音量设置'
+                            });
+                        }
+                    }, 3000);
+
+                    utterance.onstart = () => {
+                        speechStarted = true;
+                        console.log('语音播放开始');
+                    };
+
+                    utterance.onend = () => {
+                        speechEnded = true;
+                        clearTimeout(timeout);
+                        resolve({
+                            success: true,
+                            message: '语音播放成功',
+                            details: '语音功能工作正常'
+                        });
+                    };
+
+                    utterance.onerror = (event) => {
+                        clearTimeout(timeout);
+                        resolve({
+                            success: false,
+                            message: '语音播放出错',
+                            details: `错误类型: ${event.error}`
+                        });
+                    };
+
+                    speechSynthesis.speak(utterance);
+
+                } catch (error) {
+                    resolve({
+                        success: false,
+                        message: '语音测试异常',
+                        details: error.message || '未知错误'
+                    });
+                }
+            });
+        }
+
+        // 激活按钮事件
+        document.getElementById('activate-btn').addEventListener('click', function() {
+            userInteracted = true;
+            updateStatus();
+            showResult('✅ 语音功能已激活！现在可以测试语音播放了。', true);
+        });
+
+        // 测试英文语音
+        document.getElementById('test-btn').addEventListener('click', async function() {
+            showResult('🔄 正在测试英文语音...', true);
+
+            try {
+                // 使用更智能的测试方法
+                const result = await testSpeechIntelligent('Hello! This is a speech test. Can you hear me?');
+
+                if (result.success) {
+                    showResult(`🎉 ${result.message}`, true);
+                } else {
+                    showResult(`⚠️ ${result.message} - ${result.details}`, false);
+                }
+            } catch (error) {
+                showResult('❌ 测试过程中发生错误', false);
+            }
+        });
+
+        // 测试中文语音
+        document.getElementById('test-chinese-btn').addEventListener('click', async function() {
+            showResult('🔄 正在播放中文语音...', true);
+            const success = await speakText('你好！这是中文语音测试。你能听到吗？', 'zh-CN');
+            
+            if (success) {
+                showResult('🎉 中文语音播放成功！', true);
+            } else {
+                showResult('❌ 中文语音播放失败，请检查音量设置。', false);
+            }
+        });
+
+        // 初始化
+        updateStatus();
+        
+        // 自动检测用户交互
+        ['touchstart', 'click', 'keydown'].forEach(event => {
+            document.addEventListener(event, function() {
+                if (!userInteracted) {
+                    userInteracted = true;
+                    updateStatus();
+                }
+            }, { once: true });
+        });
+    </script>
+</body>
+</html>

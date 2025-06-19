@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PEP一年级下册知识点速览 - First Grade English Learning</title>
+    <meta name="description" content="PEP一年级下册英语知识点速览，系统学习单词、短语、句子，闯关式学习体验！" />
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>" />
+    
+    <style>
+      /* Loading styles */
+      #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #7c3aed 50%, #1e1b4b 75%, #0f172a 100%);
+        background-size: 400% 400%;
+        animation: gradientShift 4s ease infinite;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        overflow: hidden;
+      }
+      
+      /* 背景粒子效果 */
+      #loading::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+          radial-gradient(2px 2px at 20px 30px, rgba(147, 51, 234, 0.3), transparent),
+          radial-gradient(2px 2px at 40px 70px, rgba(59, 130, 246, 0.3), transparent),
+          radial-gradient(1px 1px at 90px 40px, rgba(147, 51, 234, 0.4), transparent),
+          radial-gradient(1px 1px at 130px 80px, rgba(59, 130, 246, 0.4), transparent),
+          radial-gradient(2px 2px at 160px 30px, rgba(147, 51, 234, 0.3), transparent);
+        background-repeat: repeat;
+        background-size: 200px 100px;
+        animation: sparkle 3s linear infinite;
+      }
+      
+      .loading-emoji {
+        font-size: 6rem;
+        animation: bounce 2s infinite, glow 2s ease-in-out infinite alternate;
+        margin-bottom: 2rem;
+        filter: drop-shadow(0 0 30px rgba(147, 51, 234, 0.8));
+        position: relative;
+        z-index: 10;
+      }
+      
+      .loading-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #a855f7, #3b82f6, #a855f7);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+        text-align: center;
+        animation: gradientText 3s ease infinite;
+        position: relative;
+        z-index: 10;
+      }
+      
+      .loading-subtitle {
+        font-size: 1.3rem;
+        color: #e2e8f0;
+        margin-bottom: 3rem;
+        text-align: center;
+        opacity: 0.9;
+        position: relative;
+        z-index: 10;
+      }
+      
+      .loading-progress {
+        width: 350px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        position: relative;
+        z-index: 10;
+        box-shadow: 0 0 20px rgba(147, 51, 234, 0.3);
+      }
+      
+      .loading-progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #a855f7, #3b82f6, #a855f7, #3b82f6);
+        background-size: 300% 100%;
+        border-radius: 4px;
+        animation: loading-progress 2.5s ease-in-out infinite;
+        box-shadow: 0 0 15px rgba(147, 51, 234, 0.6);
+      }
+      
+      .loading-text {
+        color: #94a3b8;
+        font-size: 1rem;
+        text-align: center;
+        position: relative;
+        z-index: 10;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      
+      @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      
+      @keyframes sparkle {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(-100px); }
+      }
+      
+      @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+          transform: translateY(0) scale(1) rotate(0deg);
+        }
+        40% {
+          transform: translateY(-30px) scale(1.1) rotate(5deg);
+        }
+        60% {
+          transform: translateY(-15px) scale(1.05) rotate(-3deg);
+        }
+      }
+      
+      @keyframes glow {
+        0% {
+          filter: drop-shadow(0 0 30px rgba(147, 51, 234, 0.8));
+        }
+        100% {
+          filter: drop-shadow(0 0 50px rgba(59, 130, 246, 0.8));
+        }
+      }
+      
+      @keyframes gradientText {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      
+      @keyframes loading-progress {
+        0% {
+          background-position: -300% 0;
+          transform: scaleX(0.3);
+        }
+        50% {
+          transform: scaleX(0.8);
+        }
+        100% {
+          background-position: 300% 0;
+          transform: scaleX(1);
+        }
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
+      
+      /* Hide loading when React app loads */
+      body.loaded #loading {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.8s ease-out, visibility 0.8s ease-out;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading indicator -->
+    <div id="loading">
+      <div class="loading-emoji">📚</div>
+      <div class="loading-title">PEP一年级下册知识点速览</div>
+      <div class="loading-subtitle">First Grade English Learning System</div>
+      <div class="loading-progress">
+        <div class="loading-progress-bar"></div>
+      </div>
+      <div class="loading-text">正在加载炫酷学习系统...</div>
+    </div>
+    
+    <div id="root"></div>
+    
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <script>
+      // Hide loading indicator when the page is fully loaded
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          document.body.classList.add('loaded');
+        }, 1500);
+      });
+      
+      // Fallback: hide loading after 5 seconds even if not fully loaded
+      setTimeout(() => {
+        document.body.classList.add('loaded');
+      }, 5000);
+    </script>
+  </body>
+</html>
